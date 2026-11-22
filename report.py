@@ -120,14 +120,27 @@ def build_report(final: dict) -> str:
                 h.append(f"<li><b>{e(r['company']['name'])}</b> [{e(c['claim_id'])}] {pill(c['status'])} {e(c['claim'])} <small>{e(c.get('notes'))}</small></li>")
     h.append("</ul>")
 
-    h.append("<h2>14. Evidence and source register</h2><table><tr><th>ID</th><th>Company</th><th>Status</th><th>Claim</th><th>Source</th><th>Quote</th><th>Retrieved</th></tr>")
+    h.append("<h2>14. Evidence and source register</h2><p class=sub>Source type says what the source can prove: <b>self-reported</b> = the company's own statement; "
+             "<b>independent</b> = regulator or reputable news; <b>directory listing</b> = a third-party site that may copy other data; "
+             "<b>API record</b> = data held by Crustdata. A search-result redirect link is shown with its real destination when it could be resolved; "
+             "otherwise it is marked unresolved and is not treated as a canonical source.</p>"
+             "<table><tr><th>ID</th><th>Company</th><th>Status</th><th>Claim</th><th>Source</th><th>Source type</th><th>Quote</th><th>Retrieved</th></tr>")
     names = {str(r["company"]["id"]): r["company"]["name"] for r in ranked}
+    LABEL = {"self_reported": "self-reported", "independent": "independent", "database_listing": "directory listing", "api_record": "API record",
+             "weak": "unclassified web page", "contradiction": "conflict between sources", "unverified": "unverified", "inference": "inference"}
     for r in ranked:
         for c in r.get("claims", []):
-            src = c.get("source_url") or ""
-            link = f'<a href="{e(src)}">{e(src[:60])}</a>' if src.startswith("http") else e(src)
+            raw = c.get("source_url") or ""
+            canon = c.get("canonical_url")
+            if canon:
+                link = f'<a href="{e(canon)}">{e(canon[:70])}</a>'
+            elif "google." in raw:
+                link = "redirect link, destination could not be resolved"
+            else:
+                link = f'<a href="{e(raw)}">{e(raw[:70])}</a>' if raw.startswith("http") else e(raw)
+            stype = LABEL.get(c.get("corroboration") or "", "")
             h.append(f"<tr><td>{e(c['claim_id'])}</td><td>{e(names.get(str(r['company']['id'])))}</td><td>{pill(c['status'])}</td><td>{e(c['claim'])}</td>"
-                     f"<td>{link}<br><small>{e(c.get('source_ref'))}</small></td><td class=q>{e(c.get('quote') or '')}</td><td>{e(c.get('retrieved_at'))}</td></tr>")
+                     f"<td>{link}<br><small>{e(c.get('source_ref'))}</small></td><td><small>{e(stype)}</small></td><td class=q>{e(c.get('quote') or '')}</td><td>{e(c.get('retrieved_at'))}</td></tr>")
     h.append("</table>")
     return "".join(h)
 

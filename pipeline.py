@@ -15,7 +15,9 @@ import uuid
 import evidence as ev
 import llm
 import scoring
+import ranking
 import store
+import validation
 from crustdata import BudgetExceeded, CreditsExhausted, Crustdata, CrustdataError
 
 DEMO_REQUEST = (
@@ -24,6 +26,10 @@ DEMO_REQUEST = (
     "financial institutions. Investigate their capabilities, assess strategic compatibility, identify "
     "decision-makers and recommend the strongest partnership opportunities."
 )
+
+
+class InvalidRequest(Exception):
+    """The request failed deterministic validation; nothing was spent."""
 
 
 class SimulatedCrash(Exception):
@@ -124,15 +130,22 @@ Companies:
 
 Return {{"screened": [{{"id": int, "partner_type": str, "relevance": int, "serves_target": str,
 "sells_competing_product": str, "reason": str}}]}}"""
-        out = llm.ask_json(run_id, "screen", system, prompt)
+        out = llm.ask_json(run_id, "screen", system, prompt, temperature=0.0)
         results += out.get("screened", [])
-    by_id = {c["id"]: c for c in cands}
+    by_llm = {s.get("id"): s for s in results if isinstance(s, dict)}
+    terms = ranking.brief_terms(brief)
     merged = []
-    for s in results:
-        if s.get("id") in by_id:
-            merged.append({**by_id[s["id"]], **{k: s.get(k) for k in
-                           ("partner_type", "relevance", "serves_target", "sells_competing_product", "reason")}})
-    return rank_screened(merged, [c["id"] for c in cands])
+    for pos, c in enumerate(cands):
+        pre = ranking.prescore(brief, c, terms)
+        s = by_llm.get(c["id"])
+        row = {**c, "_pos": pos, "prescore": pre["prescore"], "prescore_parts": pre["parts"], "negative_terms": pre["negative"],
+               "llm_relevance": (s or {}).get("relevance")}
+        for k in ("partner_type", "serves_target", "sells_competing_product", "reason"):
+            row[k] = (s or {}).get(k)
+        row["composite"] = ranking.composite(pre, s)
+        row["relevance"] = row["composite"]  # shown as relevance in the log/UI; the model's own number is kept as llm_relevance
+        merged.append(row)
+    return ranking.order(merged)
 
 
 def rank_screened(merged: list[dict], order: list) -> list[dict]:
@@ -180,6 +193,36 @@ def compact_enrichment(company_data: dict) -> dict:
             "cxos": pick(people.get("cxos"))}
 
 
+# ============================ Decision-maker fallback (Person Search) ============================
+SENIOR = re.compile(r"\b(ceo|chief|founder|co-?founder|managing director|president|owner|partner|chairman|director|vice president|vp|head|general manager|cxo|md)\b", re.I)
+PARTNER_ROLE = re.compile(r"(partner|alliance|channel|business development|corporate development|strategy|sales|revenue|growth|ecosystem|commercial)", re.I)
+TOP_ROLE = re.compile(r"\b(ceo|chief executive|founder|co-?founder|managing director|president|owner|chairman|md)\b", re.I)
+
+
+def pick_decision_makers(profiles: list[dict]) -> list[dict]:
+    """Keep only senior people whose TITLE is relevant to a partnership decision; rank partnership/BD roles first, then
+    top executives. Titles are copied as returned; nothing is inferred or invented. Name, title and id only (privacy)."""
+    out = []
+    for p in profiles or []:
+        bp = p.get("basic_profile") or {}
+        name, title = (bp.get("name") or "").strip(), (bp.get("current_title") or "").strip()
+        if not name or not title or not SENIOR.search(title):
+            continue
+        rank = 2 if PARTNER_ROLE.search(title) else 1 if TOP_ROLE.search(title) else 0
+        out.append({"id": p.get("crustdata_person_id"), "name": name, "title": title, "_rank": rank, "source": "Crustdata /person/search (current employer = this company id)"})
+    out.sort(key=lambda x: (-x["_rank"], x["name"]))
+    return [{k: v for k, v in x.items() if k != "_rank"} for x in out[:5]]
+
+
+def find_people(cd: Crustdata, company_id: int, enr: dict) -> dict:
+    """Fallback ONLY when the company record lists no decision-makers, founders or C-level people."""
+    if enr.get("decision_makers") or enr.get("founders") or enr.get("cxos"):
+        return {"used": False, "people": [], "n_returned": 0}
+    r = cd.person_search_company(company_id)
+    profs = r.get("profiles") or []
+    return {"used": True, "n_returned": len(profs), "people": pick_decision_makers(profs)}
+
+
 def research_sources(run_id: str, cd: Crustdata, c: dict, enr: dict) -> dict[str, dict]:
     """Collect the corpus the model may cite. Nothing outside this corpus can become a verified claim."""
     sources: dict[str, ev.Source] = {}
@@ -208,6 +251,11 @@ def research_sources(run_id: str, cd: Crustdata, c: dict, enr: dict) -> dict[str
             for hit in (r.get("results") or [])[:6]:
                 add("news" if hit.get("source") == "news" else "search_snippet", hit.get("url", ""), f"{label} search result",
                     f'{hit.get("title","")}. {hit.get("snippet","")}', hit.get("title", ""))
+                # Resolve the opaque redirect link to the real destination (read-only: one Location header, no page fetch).
+                if sources and n and not sources[f"S{n}"].canonical_url:
+                    sources[f"S{n}"].canonical_url = ev.canonicalize(hit.get("url", ""))
+                    if sources[f"S{n}"].canonical_url is None and "google." in ev.host_of(hit.get("url", "")):
+                        sources[f"S{n}"].ref += " (redirect link could not be resolved)"
         except CrustdataError as e:
             log(run_id, f"  {label} search failed for {c['name']}: {e}")
     return {k: v.to_json() for k, v in sources.items()}
@@ -242,7 +290,7 @@ Also list contradictions BETWEEN two sources, each side with its own verbatim qu
 Do not list a conflict unless both quotes really say different things about the same fact.
 Return {{"claims": [...], "conflicts": [...]}}"""
     out = llm.ask_json(run_id, "extract_claims", system, prompt)
-    rows = ev.check_claims(run_id, str(c["id"]), out.get("claims", []), objs)
+    rows = ev.check_claims(run_id, str(c["id"]), out.get("claims", []), objs, company_domain=c.get("domain", ""))
     for i, cf in enumerate(out.get("conflicts", []) or []):
         # A conflict is recorded only if BOTH quotes are really present in their cited sources.
         try:
@@ -260,8 +308,10 @@ Return {{"claims": [...], "conflicts": [...]}}"""
                # material -> contradicted (hard manual-review flag); minor -> needs_review (shown, but not a hard flag)
                "status": "contradicted" if material else "needs_review", "confidence": "low", "agent": "verification",
                "notes": "Sources disagree on a material fact; needs human review." if material else "Minor discrepancy between sources; noted, not blocking."}
-        store.execute("INSERT OR REPLACE INTO evidence VALUES (:claim_id,:run_id,:company_id,:category,:claim,:source_url,"
-                      ":source_ref,:quote,:published_at,:retrieved_at,:status,:confidence,:agent,:notes)", row)
+        row.update({"canonical_url": objs[qa["source_id"]].canonical_url, "source_org": ev.host_of(objs[qa["source_id"]].canonical_url or objs[qa["source_id"]].url) or None,
+                    "source_class": ev.classify_source(objs[qa["source_id"]].canonical_url or objs[qa["source_id"]].url, objs[qa["source_id"]].kind, c.get("domain", ""))[0],
+                    "corroboration": "contradiction"})
+        store.put_evidence(row)
         rows.append(row)
     return rows
 
@@ -321,6 +371,15 @@ Return JSON:
    "feasibility": {{"score": 0-100|null, "why": str, "claim_ids": [..]}}}}, // size, stage, plausibility of a deal
  "competitive_overlap": {{"level": "none|low|medium|high", "why": str, "claim_ids": [..]}},
    // high = partner sells its own product that competes with the requester's offering (cite the competing_product claim)
+ "relationship": {{   // judge each separately from the claims; "unknown" when no claim supports a view; never invent revenue or customers
+   "product_complementarity": {{"level": "strong|partial|none|unknown", "why": str, "claim_ids": [..]}},
+   "customer_overlap": {{"level": "strong|partial|none|unknown", "why": str, "claim_ids": [..]}},
+   "distribution_complementarity": {{"level": "strong|partial|none|unknown", "why": str, "claim_ids": [..]}},
+   "technology_compatibility": {{"level": "strong|partial|none|unknown", "why": str, "claim_ids": [..]}},
+   "competition_type": {{"type": "none|indirect|direct|unknown", "why": str, "claim_ids": [..]}},
+      // direct = sells a product that substitutes for the requester's; indirect = adjacent product that could expand into it
+   "strategic_incompatibility": {{"present": true|false, "why": str}},
+   "feasibility": {{"level": "high|medium|low|unknown", "why": str}}}},
  "mutual_value": {{"to_requester": [{{"point": str, "claim_ids": [..], "basis": "verified|inferred"}}],
                    "to_partner":   [{{"point": str, "claim_ids": [..], "basis": "verified|inferred"}}],
                    "rationale": str}},
@@ -348,6 +407,7 @@ ASSESS_SAMPLES = 3
 
 
 def finalise(run_id: str, brief: dict, c: dict, enr: dict, ident: dict, claims: list[dict], a: dict) -> dict:
+    ev.annotate_claims(claims, c.get("domain", ""))
     by_id = {x["claim_id"]: x for x in claims}
     contradictions = sum(1 for x in claims if x["status"] == "contradicted")
     adverse = sum(1 for x in claims if x["category"] == "adverse_media" and x["status"] == "verified")
@@ -368,7 +428,14 @@ def finalise(run_id: str, brief: dict, c: dict, enr: dict, ident: dict, claims: 
     fit = scoring.compute_fit(comps, level)
     conf = scoring.evidence_confidence(claims)
     key_unverified = not any(x["category"] == "bfsi_presence" and x["status"] == "verified" for x in claims)
-    flags = scoring.review_flags(ident.get("confidence"), ident.get("domain_match"), contradictions, level, key_unverified)
+    rel = a.get("relationship") if isinstance(a.get("relationship"), dict) else None
+    if rel:
+        for dim in rel.values():
+            if isinstance(dim, dict) and "claim_ids" in dim:
+                dim["claim_ids"] = [i for i in dim.get("claim_ids", []) if i in by_id]
+    ctype = ((rel or {}).get("competition_type") or {})
+    direct = (ctype.get("type") == "direct" and any(by_id[i]["status"] == "verified" and by_id[i]["category"] == "competing_product" for i in ctype.get("claim_ids", [])))
+    flags = scoring.review_flags(ident.get("confidence"), ident.get("domain_match"), contradictions, level, key_unverified, direct)
     person = next((p for p in (enr.get("decision_makers") or []) + (enr.get("founders") or []) if p["id"] == (a.get("stakeholder") or {}).get("person_id")), None)
     return {"company": {"id": c["id"], "name": enr.get("name") or c["name"], "domain": c["domain"], "city": c.get("city"),
                         "size": enr.get("employee_count_range"), "description": (enr.get("description") or "")[:600],
@@ -377,7 +444,7 @@ def finalise(run_id: str, brief: dict, c: dict, enr: dict, ident: dict, claims: 
             "recommendation": scoring.recommendation(fit["score"], conf["level"], flags),
             "competitive_overlap": overlap, "mutual_value": a.get("mutual_value"), "partnership_model": a.get("partnership_model"),
             "stakeholder": {**(person or {}), "why": (a.get("stakeholder") or {}).get("why")} if person else None,
-            "assessment_samples": a.get("assessment_samples"),
+            "assessment_samples": a.get("assessment_samples"), "relationship": rel,
             "open_questions": a.get("open_questions", []), "proposal": {**(a.get("proposal") or {}), "status": "DRAFT - not sent. Requires human approval."},
             "claims": claims}
 
@@ -386,6 +453,12 @@ def finalise(run_id: str, brief: dict, c: dict, enr: dict, ident: dict, claims: 
 def run(run_id: str, request: str, *, n_report: int = 5, shortlist: int = 6, crash_after: str | None = None,
         credit_ceiling: float | None = None, simulate_failure: str | None = None) -> dict:
     store.create_run(run_id, request)
+    verdict = validation.validate_request(request)
+    if not verdict.ok:
+        msg = " ".join(verdict.errors + verdict.clarifications)
+        store.set_run_status(run_id, "rejected", msg)
+        log(run_id, f"[validation] request rejected before any model or paid call: {msg}")
+        raise InvalidRequest(msg)
     cd = Crustdata(run_id, credit_ceiling=credit_ceiling)
     log(run_id, f"run {run_id}: credits available {cd.balance():.1f}; ceiling {cd.credit_ceiling}")
 
@@ -427,6 +500,12 @@ def run(run_id: str, request: str, *, n_report: int = 5, shortlist: int = 6, cra
                 enr_raw = stage(run_id, "enrich", cid, lambda: compact_enrichment(
                     (cd.company_enrich(domains=[c["domain"]], fields=["basic_info", "headcount", "funding", "people"])[0]["matches"] or [{}])[0].get("company_data", {})))
                 checkpoint("enrich")
+                fb = stage(run_id, "people", cid, lambda: find_people(cd, ident.get("crustdata_company_id") or c["id"], enr_raw))
+                if fb.get("people"):
+                    log(run_id, f"[intelligence] {c['name']}: no decision-maker in the company record; Person Search found {len(fb['people'])} relevant current role(s)")
+                    enr_raw = {**enr_raw, "decision_makers": list(enr_raw.get("decision_makers") or []) + fb["people"]}
+                elif fb.get("used"):
+                    log(run_id, f"[intelligence] {c['name']}: Person Search returned {fb['n_returned']} current people, none with a relevant senior title; left unverified")
                 sources = stage(run_id, "research", cid, lambda: research_sources(run_id, cd, c, enr_raw))
                 checkpoint("research")
                 claims = stage(run_id, "claims", cid, lambda: api_facts(run_id, c, enr_raw, ident) + extract_claims(run_id, brief, c, sources))
@@ -482,5 +561,7 @@ if __name__ == "__main__":
     try:
         run(rid, args.request, crash_after=args.crash_after, credit_ceiling=args.credit_ceiling, shortlist=args.shortlist,
             simulate_failure=args.simulate_failure)
+    except InvalidRequest:
+        raise SystemExit(3)
     except (SimulatedCrash, BudgetExceeded, CreditsExhausted):
         raise SystemExit(2)  # already logged and recorded in the runs table; resumable with the same --run-id

@@ -1,0 +1,242 @@
+[
+ {
+  "run": "demo1",
+  "company": "SEA Infonet Pvt Ltd",
+  "confidence_before": "High",
+  "confidence_after": "Medium",
+  "strong_independent_domains": 0,
+  "database_domains": 0
+ },
+ {
+  "run": "demo1",
+  "company": "Sectonics Private Limited",
+  "confidence_before": "Medium",
+  "confidence_after": "Medium",
+  "strong_independent_domains": 0,
+  "database_domains": 0
+ },
+ {
+  "run": "demo1",
+  "company": "TechBox7",
+  "confidence_before": "High",
+  "confidence_after": "Medium",
+  "strong_independent_domains": 0,
+  "database_domains": 0
+ },
+ {
+  "run": "demo1",
+  "company": "eCAPS, Cybersecurity & Networking",
+  "confidence_before": "Medium",
+  "confidence_after": "Medium",
+  "strong_independent_domains": 0,
+  "database_domains": 0
+ },
+ {
+  "run": "demo1",
+  "company": "Multify Solutions Private Limited",
+  "confidence_before": "High",
+  "confidence_after": "Medium",
+  "strong_independent_domains": 0,
+  "database_domains": 0
+ },
+ {
+  "run": "demo1",
+  "company": "BlueEarth Softwares Pvt. Ltd.",
+  "confidence_before": "Medium",
+  "confidence_after": "Medium",
+  "strong_independent_domains": 0,
+  "database_domains": 0
+ },
+ {
+  "run": "demo2",
+  "company": "SEA Infonet Pvt Ltd",
+  "confidence_before": "High",
+  "confidence_after": "Medium",
+  "strong_independent_domains": 0,
+  "database_domains": 0
+ },
+ {
+  "run": "demo2",
+  "company": "CyberVAD Technologies",
+  "confidence_before": "Medium",
+  "confidence_after": "Medium",
+  "strong_independent_domains": 0,
+  "database_domains": 0
+ },
+ {
+  "run": "demo2",
+  "company": "JGD CyberScuti Pvt. Ltd.",
+  "confidence_before": "High",
+  "confidence_after": "Medium",
+  "strong_independent_domains": 0,
+  "database_domains": 0
+ },
+ {
+  "run": "demo2",
+  "company": "eCAPS, Cybersecurity & Networking",
+  "confidence_before": "Medium",
+  "confidence_after": "Medium",
+  "strong_independent_domains": 0,
+  "database_domains": 0
+ },
+ {
+  "run": "demo2",
+  "company": "RankSecure",
+  "confidence_before": "High",
+  "confidence_after": "Medium",
+  "strong_independent_domains": 0,
+  "database_domains": 0
+ },
+ {
+  "run": "demo2",
+  "company": "Nexviax",
+  "confidence_before": "High",
+  "confidence_after": "Medium",
+  "strong_independent_domains": 0,
+  "database_domains": 0
+ },
+ {
+  "run": "demo3",
+  "company": "DebiLink Consulting India Pvt Ltd",
+  "confidence_before": "High",
+  "confidence_after": "Medium",
+  "strong_independent_domains": 0,
+  "database_domains": 1
+ },
+ {
+  "run": "demo3",
+  "company": "Cycops Business Solutions",
+  "confidence_before": "High",
+  "confidence_after": "Medium",
+  "strong_independent_domains": 0,
+  "database_domains": 0
+ },
+ {
+  "run": "demo3",
+  "company": "iValue Group",
+  "confidence_before": "High",
+  "confidence_after": "Medium",
+  "strong_independent_domains": 0,
+  "database_domains": 0
+ },
+ {
+  "run": "demo3",
+  "company": "Finonyx Software Solutions Pvt Ltd",
+  "confidence_before": "High",
+  "confidence_after": "Medium",
+  "strong_independent_domains": 0,
+  "database_domains": 0
+ },
+ {
+  "run": "demo3",
+  "company": "Airtree Ventures Private Limited - India",
+  "confidence_before": "High",
+  "confidence_after": "Medium",
+  "strong_independent_domains": 0,
+  "database_domains": 0
+ },
+ {
+  "run": "demo3",
+  "company": "Dvion",
+  "confidence_before": "High",
+  "confidence_after": "Medium",
+  "strong_independent_domains": 0,
+  "database_domains": 0
+ },
+ {
+  "run": "demo4",
+  "company": "iValue Group",
+  "confidence_before": "High",
+  "confidence_after": "Medium",
+  "strong_independent_domains": 0,
+  "database_domains": 0
+ },
+ {
+  "run": "demo4",
+  "company": "Interland",
+  "confidence_before": "High",
+  "confidence_after": "Medium",
+  "strong_independent_domains": 0,
+  "database_domains": 0
+ },
+ {
+  "run": "demo4",
+  "company": "VARATHRA IT TECHNOLOGIES",
+  "confidence_before": "High",
+  "confidence_after": "Medium",
+  "strong_independent_domains": 0,
+  "database_domains": 0
+ },
+ {
+  "run": "demo4",
+  "company": "Letsfin Tech",
+  "confidence_before": "High",
+  "confidence_after": "Medium",
+  "strong_independent_domains": 0,
+  "database_domains": 0
+ },
+ {
+  "run": "demo4",
+  "company": "Unisol IT Solutions Private Limited",
+  "confidence_before": "Medium",
+  "confidence_after": "Medium",
+  "strong_independent_domains": 0,
+  "database_domains": 0
+ },
+ {
+  "run": "demo4",
+  "company": "Infonet Solutions",
+  "confidence_before": "High",
+  "confidence_after": "Medium",
+  "strong_independent_domains": 0,
+  "database_domains": 0
+ },
+ {
+  "run": "demo6",
+  "company": "ATOP Security Group",
+  "confidence_before": "High",
+  "confidence_after": "Medium",
+  "strong_independent_domains": 0,
+  "database_domains": 0
+ },
+ {
+  "run": "demo6",
+  "company": "Cycops Business Solutions",
+  "confidence_before": "High",
+  "confidence_after": "Medium",
+  "strong_independent_domains": 0,
+  "database_domains": 0
+ },
+ {
+  "run": "demo6",
+  "company": "DebiLink Consulting India Pvt Ltd",
+  "confidence_before": "High",
+  "confidence_after": "Medium",
+  "strong_independent_domains": 0,
+  "database_domains": 1
+ },
+ {
+  "run": "demo6",
+  "company": "iValue Group",
+  "confidence_before": "High",
+  "confidence_after": "Medium",
+  "strong_independent_domains": 0,
+  "database_domains": 0
+ },
+ {
+  "run": "demo6",
+  "company": "Airtree Ventures Private Limited - India",
+  "confidence_before": "High",
+  "confidence_after": "Medium",
+  "strong_independent_domains": 0,
+  "database_domains": 0
+ },
+ {
+  "run": "demo6",
+  "company": "Rupiyo Digital Private Limited",
+  "confidence_before": "High",
+  "confidence_after": "Medium",
+  "strong_independent_domains": 0,
+  "database_domains": 0
+ }
+]

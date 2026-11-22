@@ -28,6 +28,10 @@ if DEMO_MODE:
 else:
     DB_PATH = os.environ.get("PARTNERSCOUT_DB") or str(Path(__file__).parent / "data" / "partnerscout.db")
 
+EVIDENCE_BASE = ["claim_id", "run_id", "company_id", "category", "claim", "source_url", "source_ref", "quote", "published_at",
+                 "retrieved_at", "status", "confidence", "agent", "notes"]
+EVIDENCE_EXTRA = ["canonical_url", "source_class", "source_org", "corroboration"]
+
 _lock = threading.RLock()
 _conn: sqlite3.Connection | None = None
 
@@ -51,9 +55,11 @@ CREATE TABLE IF NOT EXISTS stages (
   PRIMARY KEY (run_id, stage, item)
 );
 CREATE TABLE IF NOT EXISTS evidence (
-  claim_id TEXT PRIMARY KEY, run_id TEXT, company_id TEXT, category TEXT, claim TEXT,
+  claim_id TEXT, run_id TEXT, company_id TEXT, category TEXT, claim TEXT,
   source_url TEXT, source_ref TEXT, quote TEXT, published_at TEXT, retrieved_at TEXT,
-  status TEXT, confidence TEXT, agent TEXT, notes TEXT
+  status TEXT, confidence TEXT, agent TEXT, notes TEXT,
+  canonical_url TEXT, source_class TEXT, source_org TEXT, corroboration TEXT,
+  PRIMARY KEY (run_id, claim_id)
 );
 -- Human approvals. Approving records intent only; PartnerScout never contacts anyone.
 CREATE TABLE IF NOT EXISTS approvals (
@@ -71,6 +77,28 @@ def conn() -> sqlite3.Connection:
             _conn.row_factory = sqlite3.Row
             _conn.execute("PRAGMA journal_mode=WAL")
             _conn.executescript(SCHEMA)
+            info = list(_conn.execute("PRAGMA table_info(evidence)"))
+            pk = {r[1] for r in info if r[5]}
+            if pk == {"claim_id"}:
+                # Older databases keyed evidence by claim_id alone, so the same company in a later run silently overwrote the
+                # earlier run's rows. Rebuild with PRIMARY KEY (run_id, claim_id), keeping every existing row.
+                _conn.executescript("""
+                    ALTER TABLE evidence RENAME TO evidence_old;
+                    CREATE TABLE evidence (
+                      claim_id TEXT, run_id TEXT, company_id TEXT, category TEXT, claim TEXT,
+                      source_url TEXT, source_ref TEXT, quote TEXT, published_at TEXT, retrieved_at TEXT,
+                      status TEXT, confidence TEXT, agent TEXT, notes TEXT,
+                      canonical_url TEXT, source_class TEXT, source_org TEXT, corroboration TEXT,
+                      PRIMARY KEY (run_id, claim_id));""")
+                oldcols = {r[1] for r in _conn.execute("PRAGMA table_info(evidence_old)")}
+                shared = [c for c in EVIDENCE_BASE + EVIDENCE_EXTRA if c in oldcols]
+                _conn.execute(f"INSERT OR IGNORE INTO evidence ({','.join(shared)}) SELECT {','.join(shared)} FROM evidence_old")
+                _conn.execute("DROP TABLE evidence_old")
+                info = list(_conn.execute("PRAGMA table_info(evidence)"))
+            have = {r[1] for r in info}
+            for col in EVIDENCE_EXTRA:  # migrate databases created before source classification existed
+                if col not in have:
+                    _conn.execute(f"ALTER TABLE evidence ADD COLUMN {col} TEXT")
             _conn.commit()
         return _conn
 
@@ -122,3 +150,10 @@ def ledger_totals(run_id: str) -> dict:
         (run_id,),
     )[0]
     return {"credits": r["c"], "usd": r["u"], "calls": r["n"], "cache_hits": r["hits"]}
+
+
+def put_evidence(row: dict) -> None:
+    """Write one evidence row (named columns, so the table can grow). Missing new fields are stored as NULL."""
+    cols = EVIDENCE_BASE + EVIDENCE_EXTRA
+    execute(f"INSERT OR REPLACE INTO evidence ({','.join(cols)}) VALUES ({','.join(':' + c for c in cols)})",
+            {c: row.get(c) for c in cols})

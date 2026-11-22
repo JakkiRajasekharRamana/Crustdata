@@ -1,0 +1,27 @@
+{
+ "label": "baseline",
+ "repeats": 10,
+ "top5_mean_pairwise_overlap": 0.72,
+ "top5_min_pairwise_overlap": 0.6,
+ "top5_distinct_companies_ever_selected": 11,
+ "top5_always_selected": 3,
+ "top6_mean_pairwise_overlap": 0.73,
+ "top6_min_pairwise_overlap": 0.5,
+ "top6_distinct_companies_ever_selected": 11,
+ "top6_always_selected": 3,
+ "spearman_top30_mean": 0.909,
+ "kendall_top30_mean": 0.776,
+ "top6_inclusion_frequency": {
+  "iValue Group": "10/10",
+  "Cycops Business Solutions": "10/10",
+  "Finonyx Software Solutions Pvt": "10/10",
+  "Adinath Infotech Private Limit": "8/10",
+  "DebiLink Consulting India Pvt ": "5/10",
+  "Dvion": "5/10",
+  "Airtree Ventures Private Limit": "5/10",
+  "Infonet Solutions": "3/10",
+  "AdvantageSB Technology Solutio": "2/10",
+  "DOMINFOSEC SOLUTIONS": "1/10",
+  "Letsfin Tech": "1/10"
+ }
+}

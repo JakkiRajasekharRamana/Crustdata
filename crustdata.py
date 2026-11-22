@@ -139,8 +139,14 @@ class Crustdata:
             credits = float(r.headers.get("X-Credits-Used") or 0)
             latency = time.time() - t0
             if r.status_code == 200:
+                try:
+                    data = r.json()
+                except ValueError:  # a 200 whose body is not JSON: log it, never cache it, retry (bounded)
+                    self._log(path, body, 200, credits, latency, attempt=attempt, error="invalid JSON body")
+                    last_err = "200 with invalid JSON"
+                    time.sleep(min(2 ** attempt, 20))
+                    continue
                 self._log(path, body, 200, credits, latency, attempt=attempt)
-                data = r.json()
                 store.execute("INSERT OR REPLACE INTO cache VALUES (?,?,?,?)",
                               (key, path, time.time(), json.dumps(data)))
                 return data
@@ -195,3 +201,10 @@ class Crustdata:
 
     def web_fetch(self, urls: list[str]):
         return self.call("/web/enrich/live", {"urls": urls[:10]})
+
+    def person_search_company(self, company_id: int, *, limit: int = 25):
+        """People whose CURRENT employer is this Crustdata company id. Only name, title and id are requested.
+        Filter field and response shape come from the API's own error message listing supported fields (checked live)."""
+        body = {"filters": {"field": "experience.employment_details.current.company_id", "type": "=", "value": company_id},
+                "fields": ["basic_profile.name", "basic_profile.current_title", "crustdata_person_id"], "limit": limit}
+        return self.call("/person/search", body)

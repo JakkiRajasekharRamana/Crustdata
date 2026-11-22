@@ -20,6 +20,7 @@ import streamlit as st
 import geo
 import report
 import store
+import validation
 from pipeline import DEMO_REQUEST
 
 ROOT = Path(__file__).parent
@@ -31,6 +32,7 @@ st.set_page_config(page_title="PartnerScout", page_icon="◈", layout="wide", in
 T = {"ivory": "#F5F4EF", "white": "#FFFFFF", "navy": "#101F2C", "slate": "#62717D", "emerald": "#167C68", "mint": "#43B99B",
      "gold": "#D5A85B", "line": "#E4E8E5", "ok": "#16845B", "warn": "#C18A35", "err": "#C65353", "soft": "#E6F2EE", "grey": "#9AA6AF"}
 REC_COLORS = {"pursue": T["emerald"], "worth": T["mint"], "caution": T["warn"], "manual": T["err"], "held": T["slate"], "depri": T["grey"]}
+CORRO = {"self_reported": "self-reported by the company", "independent": "independent source", "database_listing": "directory listing (may copy other data)", "api_record": "Crustdata API record", "weak": "unclassified web page"}
 STATUS_COLORS = {"verified": T["ok"], "inferred": "#5B7C99", "unverified": T["warn"], "needs_review": T["gold"], "contradicted": T["err"]}
 COMP_NAMES = {"strategic": "Strategic", "capability": "Capability", "market_access": "Market access", "trust": "Trust", "feasibility": "Feasibility"}
 COMP_WEIGHTS = {"strategic": 30, "capability": 25, "market_access": 20, "trust": 15, "feasibility": 10}
@@ -218,7 +220,7 @@ NAV = {"Brief": "◧   Partnership Brief", "Workspace": "◔   Intelligence Work
 page = st.sidebar.radio("Screen", PAGES, label_visibility="collapsed", format_func=lambda p: NAV[p])
 rs = runs()
 labels = {r["run_id"]: f'{r["run_id"]}  ·  {r["status"]}' for r in rs}
-HEADLINE_RUN = "demo3"  # the run the README reports on
+HEADLINE_RUN = "demo6"  # the run produced by the post-repair code (see PARTNERSCOUT_POST_REPAIR_AUDIT.md)
 st.sidebar.markdown("<div style='height:8px'></div>", unsafe_allow_html=True)
 current = st.sidebar.selectbox("Research run", list(labels), format_func=lambda k: labels[k],
                                index=list(labels).index(HEADLINE_RUN) if HEADLINE_RUN in labels else 0) if rs else None
@@ -302,8 +304,18 @@ if page == "Brief":
         crash = c2.selectbox("Demo: crash after stage", ["(none)", "discover", "screen", "enrich", "research", "claims"])
         fail = c3.selectbox("Demo: tool outage", ["(none)", "enrich"])
         if st.button("Run PartnerScout", type="primary", disabled=DEMO, help="Disabled in the read-only demo" if DEMO else None):
-            parts = [req] + [f"{k}: {v}" for k, v in [("Requesting company", company), ("Company website", website), ("Target industry", industry),
-                                                      ("Geography", geo_in), ("Partner type", ptype), ("Required capabilities", caps), ("Constraints", extra)] if v]
+            structured = {"Requesting company": company, "Company website": website, "Target industry": industry, "Geography": geo_in,
+                          "Partner type": ptype, "Required capabilities": caps, "Constraints": extra}
+            parts = [req] + [f"{k}: {v}" for k, v in structured.items() if v]
+            verdict = validation.validate_request(" ".join(parts), structured)
+            if not verdict.ok:  # nothing is sent to the model or to Crustdata for an invalid request
+                for e_ in verdict.errors:
+                    st.error(e_)
+                for q_ in verdict.clarifications:
+                    st.warning("Please clarify: " + q_)
+                st.stop()
+            for w_ in verdict.warnings:
+                st.info(w_)
             rid = f"run-{uuid.uuid4().hex[:6]}"
             store.create_run(rid, " | ".join(parts))
             launch(rid, " | ".join(parts), ceiling, None if crash == "(none)" else crash, None if fail == "(none)" else fail)
@@ -384,7 +396,7 @@ elif page == "Workspace":
             st.altair_chart(style_chart(ch, 150), width="stretch")
             st.markdown("</div>", unsafe_allow_html=True)
     with st.expander("Evidence and sources (real source records for this run)"):
-        evd = store.query("SELECT claim_id, status, category, claim, source_url, quote FROM evidence WHERE run_id=? ORDER BY claim_id LIMIT 400", (current,))
+        evd = store.query("SELECT claim_id, status, category, claim, source_url, canonical_url, source_class, corroboration, quote FROM evidence WHERE run_id=? ORDER BY claim_id LIMIT 400", (current,))
         if evd:
             st.dataframe(pd.DataFrame([dict(x) for x in evd]), width="stretch", hide_index=True, height=280)
         else:
@@ -512,7 +524,8 @@ elif page == "Partners":
                     q = f'<div class="ps-quote">“{esc(str(c.get("quote") or "")[:230])}”</div>' if c.get("quote") else ""
                     st.markdown(f'<div style="margin-bottom:8px">{badge(c["status"], STATUS_COLORS.get(c["status"], T["slate"]))}<span class="ps-pill">{esc(c["category"])}</span> '
                                 f'<span class="ps-chip">{esc(c["claim_id"])}</span><div style="font-size:14px;margin-top:3px">{esc(c["claim"])}</div>{q}'
-                                f'<div style="font-size:11.5px;color:{T["slate"]}">{esc(c.get("source_url") or "")}</div></div>', unsafe_allow_html=True)
+                                f'<div style="font-size:11.5px;color:{T["slate"]}">{esc(c.get("canonical_url") or ("redirect link, destination unresolved" if "google." in str(c.get("source_url")) else c.get("source_url")) or "")}'
+                                f'{" · " + esc(CORRO.get(c.get("corroboration") or "", "")) if c.get("corroboration") else ""}</div></div>', unsafe_allow_html=True)
             else:
                 st.caption("I can't verify specific capabilities from the available sources.")
             st.markdown("**C. Strategic compatibility**")
@@ -525,6 +538,17 @@ elif page == "Partners":
                 blocks.append(f'<div class="ps-comp"><div class="h"><span>{cn} <span class="w">weight {COMP_WEIGHTS[ck]}%</span></span><span style="color:{colr}">{"unknown" if sc is None else f"{sc:.0f}"}</span></div>'
                               f'<div class="ps-bar" style="width:100%"><div style="width:{0 if sc is None else sc}%;background:{colr}"></div></div><div class="why">{esc(v.get("why"))}</div><div style="margin-top:4px">{ids}</div></div>')
             st.markdown(f'<div class="ps-card">{"".join(blocks)}</div>', unsafe_allow_html=True)
+            rel = p.get("relationship") or {}
+            if rel:
+                dims = [("Product complementarity", "product_complementarity", "level"), ("Customer overlap", "customer_overlap", "level"),
+                        ("Distribution complementarity", "distribution_complementarity", "level"), ("Technology compatibility", "technology_compatibility", "level"),
+                        ("Competition", "competition_type", "type"), ("Feasibility", "feasibility", "level")]
+                rows = "".join(f'<div class="ps-comp"><div class="h"><span>{n}</span><span style="color:{T["emerald"]}">{esc((rel.get(k) or {}).get(f) or "unknown")}</span></div>'
+                               f'<div class="why">{esc((rel.get(k) or {}).get("why"))}</div></div>' for n, k, f in dims if rel.get(k))
+                inc = rel.get("strategic_incompatibility") or {}
+                if inc.get("present"):
+                    rows += f'<div class="ps-comp"><div class="h"><span>Strategic incompatibility</span><span style="color:{T["err"]}">present</span></div><div class="why">{esc(inc.get("why"))}</div></div>'
+                st.markdown(f'<div class="ps-card" style="margin-top:10px"><h4>Relationship dimensions</h4>{rows}</div>', unsafe_allow_html=True)
             st.markdown("<div style='height:12px'></div>", unsafe_allow_html=True)
             st.markdown("**D. Mutual value analysis**")
             mv = p.get("mutual_value") or {}
@@ -568,7 +592,7 @@ elif page == "Partners":
             pm = p.get("partnership_model") or {}
             st.markdown(f'<div class="ps-card">{badge((pm.get("model") or "none").replace("_", " "), T["emerald"])}<div style="margin-top:6px;font-size:14px;color:#2A3B49">{esc(pm.get("why"))}</div></div>', unsafe_allow_html=True)
             with st.expander(f"Evidence register ({len(p['claims'])} claims)"):
-                st.dataframe(pd.DataFrame([{k2: c.get(k2) for k2 in ("claim_id", "status", "category", "claim", "source_url", "quote")} for c in p["claims"]]), width="stretch", hide_index=True)
+                st.dataframe(pd.DataFrame([{k2: c.get(k2) for k2 in ("claim_id", "status", "category", "claim", "source_url", "canonical_url", "source_class", "corroboration", "quote")} for c in p["claims"]]), width="stretch", hide_index=True)
 
 # ================================================================== 4. BRIEF GENERATOR
 else:

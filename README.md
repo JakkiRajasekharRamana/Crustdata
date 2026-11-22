@@ -17,7 +17,7 @@ Built for ContextCon 05 (BITS Pilani x Crustdata), theme *Services, Replaced*, c
 
 * **Buyer:** a partnerships or corporate-development lead at a B2B SaaS company opening a new industry or geography, or a BD agency serving several such clients.
 * **Today:** an analyst spends days to weeks per shortlist (our estimate; we did not interview buyers).
-* **Proposed price:** about **Rs 4,000 per partnership brief** (up to 5 vetted partners), or Rs 25,000 a month for 10 briefs. These are our own proposal and have not been tested with anyone.
+* **Proposed price:** about **Rs 4,000 per partnership brief** (up to 5 vetted partners), or Rs 25,000 a month for 10 briefs. These are our own proposal and have not been tested with anyone. No gross margin is claimed: Crustdata's price per credit and hosting costs are not known to us, so only the credit count and the model cost are measured.
 * **What one job costs us to run** (measured on run `demo3`, 6 companies investigated): **24.8 Crustdata credits** plus about **US$0.085** of model usage at list price (the free tier billed US$0). At an assumed Rs 90 per US$ that is roughly Rs 8 of model cost. Crustdata's price per credit is not stated in the event material we have, so the data cost is `credits x your plan's price per credit`; the credit count is the number to use. Every run reports its own credits in the report footer and the Workspace ledger.
 * **Margin check:** the price is dominated by the human review the product still asks for, not by the cost of the run.
 
@@ -70,7 +70,7 @@ Every call is stored in `calls` (endpoint, credits from `X-Credits-Used`, latenc
 
 * Every component has a written reason and cites ledger claim ids.
 * **Unknown is not zero**: an unestablished component is dropped and the other weights renormalised; evidence confidence falls instead.
-* **Evidence confidence** (High/Medium/Low) is separate from fit. A high fit with low confidence is not presented as a firm recommendation.
+* **Evidence confidence** (High/Medium/Low) is separate from fit. A high fit with low confidence is not presented as a firm recommendation. Every source is classified (company's own site, regulator, reputable news, third-party directory, Crustdata record, unclassified page). **High** needs a regulator or reputable-news corroboration, or two different directory domains; a company's own marketing, or one directory repeated, can only reach Medium. A re-evaluation of the first 24 investigated companies under this rule moved 18 of them from High to Medium (none had regulator or news corroboration), so earlier "High" ratings were overstated.
 * **Hard flags** (unresolved identity, domain mismatch, contradictions) override the number.
 * **Competitive conflict** (a partner that sells its own competing product) is an explicit, shown penalty and changes the recommendation to "Approach with caution".
 * The weights are design assumptions, not validated values.
@@ -138,12 +138,14 @@ Discovery itself is stable (73 to 75 unique candidates each time); the screening
 * **Workflow completion and recovery rates:** four full runs and two induced failures; too few to report a percentage. `demo4` was made after a shortlist-ordering experiment that we then reverted because it gave weaker results.
 
 **Mistakes found by testing, and fixed**
-* A company got *High* confidence from its own marketing page alone. High now requires corroboration from a source that is not the company's own site.
+* A company got *High* confidence from its own marketing page alone. High first required a source that was not the company's own site; the post-repair audit found that still let directory listings count as independent, so the rule was tightened again (see PARTNERSCOUT_POST_REPAIR_AUDIT.md).
 * A founding-year mismatch (2011 vs 2012) forced manual review. A conflict now needs a verbatim quote from both sides, and only material conflicts block a recommendation.
 * A trade association was shortlisted as a partner in an earlier run. The screening prompt now excludes associations, directories, media and government bodies; none appeared in the shortlists of `demo1` to `demo4`.
 * A held company would never have been retried on resume (found while testing the outage, fixed).
 
-A finished report for the headline run `demo3` is committed at [docs/sample_report_demo3.html](docs/sample_report_demo3.html) (open it in a browser; every claim links to its source in the last section); the app can generate one for any run.
+A finished report for the post-repair run `demo6` is committed at [docs/sample_report_demo6.html](docs/sample_report_demo6.html) (open it in a browser; every claim links to its source in the last section); the app can generate one for any run.
+
+**Post-repair audit.** An independent-style audit after these results (`PARTNERSCOUT_POST_REPAIR_AUDIT.md`) found and fixed: shortlist instability (screening now ranks by a deterministic code-computed score; 100% top-6 overlap over 10 repeats on a fixed pool, versus 73%), overstated "High" confidence (all 30 evaluated companies are now Medium under a source-quality rule), an evidence-table key that let later runs overwrite earlier runs, Google redirect citations, missing input validation and an uncaught invalid-JSON path. Decision-maker coverage did not improve (the people are not in the data). The post-repair run is `demo6`; whole-run scores still vary between runs.
 
 ## 7. Limitations
 * Company descriptions in the data graph are marketing text; a verified claim from a company's own website means "the company says so".

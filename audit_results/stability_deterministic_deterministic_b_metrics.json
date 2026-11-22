@@ -1,0 +1,22 @@
+{
+ "label": "deterministic+deterministic_b",
+ "repeats": 10,
+ "top5_mean_pairwise_overlap": 1.0,
+ "top5_min_pairwise_overlap": 1.0,
+ "top5_distinct_companies_ever_selected": 5,
+ "top5_always_selected": 5,
+ "top6_mean_pairwise_overlap": 1.0,
+ "top6_min_pairwise_overlap": 1.0,
+ "top6_distinct_companies_ever_selected": 6,
+ "top6_always_selected": 6,
+ "spearman_top30_mean": 1.0,
+ "kendall_top30_mean": 1.0,
+ "top6_inclusion_frequency": {
+  "iValue Group": "10/10",
+  "DebiLink Consulting India Pvt ": "10/10",
+  "Cycops Business Solutions": "10/10",
+  "Infoniks Systems Pvt. Ltd.": "10/10",
+  "ATOP Security Group": "10/10",
+  "Airtree Ventures Private Limit": "10/10"
+ }
+}

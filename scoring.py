@@ -62,10 +62,24 @@ def evidence_confidence(claims: list[dict]) -> dict:
     kinds = {c.get("confidence") for c in verified}
     key_cats = {c["category"] for c in verified}
     has_core = {"capability", "bfsi_presence"} <= key_cats
-    # Independent corroboration: a verified claim about the target segment / channel that is NOT just the
-    # company's own marketing (news or third-party result). Self-reported claims prove "they say so" only.
-    independent = [c for c in verified if c["category"] in ("bfsi_presence", "distribution_channel", "competing_product", "capability")
-                   and not str(c.get("notes") or "").startswith(("Self-reported", "Crustdata API"))]
+    # Independent corroboration. A verified claim from the company's own site proves "they say so", not that it is true, and
+    # several directory sites often copy one another. So: strong corroboration = a regulatory or reputable-news source;
+    # weaker = distinct third-party database DOMAINS (counted once per domain, so repeats of one listing do not add up).
+    # Older rows without a classification fall back to the earlier rule (anything not self-reported / API).
+    core = ("bfsi_presence", "distribution_channel", "competing_product", "capability")
+    strong, weak_domains = set(), set()
+    legacy = 0
+    for c in verified:
+        if c["category"] not in core:
+            continue
+        co = c.get("corroboration")
+        if co == "independent":
+            strong.add(c.get("source_org") or c.get("source_url"))
+        elif co == "database_listing":
+            weak_domains.add(c.get("source_org") or c.get("source_url"))
+        elif co is None and not str(c.get("notes") or "").startswith(("Self-reported", "Crustdata API")):
+            legacy += 1
+    independent = list(strong) + (list(weak_domains) if len(weak_domains) >= 2 else []) + [None] * legacy
     if coverage >= 0.7 and has_core and len(verified) >= 6 and independent:
         level = "High"
     elif coverage >= 0.4 and len(verified) >= 3:
@@ -73,11 +87,11 @@ def evidence_confidence(claims: list[dict]) -> dict:
     else:
         level = "Low"
     return {"level": level, "coverage": round(coverage, 2), "verified": len(verified), "total": len(scored),
-            "has_core": has_core, "independent_sources": len(independent), "kinds": sorted(k for k in kinds if k)}
+            "has_core": has_core, "independent_sources": len(independent), "strong_independent_domains": len(strong), "database_domains": len(weak_domains), "kinds": sorted(k for k in kinds if k)}
 
 
 def review_flags(identity_confidence, domain_match, contradictions: int, conflict_level: str,
-                 unverified_key: bool) -> list[str]:
+                 unverified_key: bool, direct_competitor: bool = False) -> list[str]:
     flags = []
     if identity_confidence is None or identity_confidence < 0.6:
         flags.append("Company identity not resolved - manual review required")
@@ -87,6 +101,9 @@ def review_flags(identity_confidence, domain_match, contradictions: int, conflic
         flags.append("Conflicting information between sources - manual review required")
     if conflict_level in ("medium", "high"):
         flags.append(f"Strategic conflict: partner sells a competing product ({conflict_level} overlap)")
+    if direct_competitor:
+        # A serious conflict must be able to override a high score: a verified direct competitor needs a person's judgement first.
+        flags.append("Direct competitor with a verified competing product - manual review required before any approach")
     if unverified_key:
         flags.append("Key claim could not be verified from available sources")
     return flags

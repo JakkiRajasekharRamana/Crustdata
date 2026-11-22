@@ -8,18 +8,23 @@ from pathlib import Path
 import store
 
 CSS = """
-html{background:#fff;color-scheme:light}
-body{font:15px/1.55 system-ui,Segoe UI,sans-serif;color:#1a1f2b;background:#fff;max-width:1000px;margin:0 auto;padding:32px 20px}
-h1{font-size:26px;margin:0}h2{margin-top:34px;border-bottom:2px solid #e3e7ee;padding-bottom:6px}h3{margin-bottom:4px}
-.sub{color:#5b6475}.card{border:1px solid #dfe4ec;border-radius:10px;padding:16px 18px;margin:16px 0;background:#fff}
-table{border-collapse:collapse;width:100%;font-size:13.5px}th,td{border-bottom:1px solid #e8ebf1;padding:6px 8px;text-align:left;vertical-align:top}
-th{background:#f4f6fa}.pill{display:inline-block;padding:1px 9px;border-radius:99px;font-size:12px;font-weight:600}
-.High,.verified,.Pursue{background:#dcf3e4;color:#14633a}.Medium,.inferred{background:#fff0cf;color:#7a5200}
-.Low,.unverified{background:#fde2e1;color:#8c1d18}.contradicted,.flag{background:#fde2e1;color:#8c1d18}
-.score{font-size:28px;font-weight:700}.muted{color:#6b7385}.q{color:#444;font-style:italic}
-.draft{background:#fbfaf5;border-left:4px solid #c9a227;padding:10px 14px;white-space:pre-wrap}
-.banner{background:#eef3ff;border:1px solid #cfdcff;border-radius:8px;padding:10px 14px;margin:12px 0}
-small{color:#6b7385}
+html{background:#F5F4EF;color-scheme:light}
+body{font:15px/1.6 Inter,system-ui,Segoe UI,sans-serif;color:#101F2C;background:#fff;max-width:960px;margin:24px auto;padding:44px 52px;border:1px solid #E4E8E5;border-radius:6px}
+h1{font-size:28px;margin:0 0 4px;letter-spacing:-.02em;color:#101F2C}
+h2{margin-top:38px;border-bottom:1px solid #E4E8E5;padding-bottom:8px;font-size:19px;letter-spacing:-.01em;color:#101F2C}
+h2:before{content:"";display:inline-block;width:4px;height:16px;background:#167C68;border-radius:2px;margin-right:10px;vertical-align:-2px}
+h3{margin-bottom:4px;color:#101F2C}
+.sub{color:#62717D}.card{border:1px solid #E4E8E5;border-radius:10px;padding:16px 18px;margin:16px 0;background:#fff}
+table{border-collapse:collapse;width:100%;font-size:13.5px}th,td{border-bottom:1px solid #E4E8E5;padding:7px 8px;text-align:left;vertical-align:top}
+th{background:#F5F4EF;color:#62717D;font-size:12px;text-transform:uppercase;letter-spacing:.05em}
+.pill{display:inline-block;padding:1px 10px;border-radius:99px;font-size:12px;font-weight:600}
+.High,.verified,.Pursue{background:#E3F2EC;color:#167C68}.Medium,.inferred{background:#F8EFDC;color:#8A6420}
+.Low,.unverified{background:#FBE9E9;color:#C65353}.contradicted,.flag{background:#FBE9E9;color:#C65353}
+.score{font-size:28px;font-weight:700;color:#167C68}.muted{color:#62717D}.q{color:#3B4A57;font-style:italic}
+.draft{background:#FBF7EC;border-left:4px solid #D5A85B;padding:10px 14px;white-space:pre-wrap}
+.banner{background:#E3F2EC;border:1px solid #BFE3D6;border-radius:8px;padding:10px 14px;margin:12px 0}
+small{color:#62717D}
+@media print{html{background:#fff}body{border:0;margin:0;padding:0}}
 """
 
 

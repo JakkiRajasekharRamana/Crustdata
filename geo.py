@@ -98,20 +98,19 @@ def build_points(ranked: list[dict], candidates: list[dict], colors: dict, rec_k
 
 
 def map_html(points: list[dict], height: int = 430) -> str:
-    """Self-contained Leaflet map (OpenStreetMap tiles, darkened with a CSS filter). Needs internet for the tiles and the Leaflet CDN."""
+    """Self-contained Leaflet map (OpenStreetMap tiles, softened with a CSS filter). Needs internet for the tiles and the Leaflet CDN."""
     data = json.dumps(points)
     return f"""<!doctype html><html><head><meta charset="utf-8">
 <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
 <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
-<style>html,body,#m{{margin:0;height:100%;background:#0b1020}}
-.leaflet-container{{font-family:Inter,system-ui,sans-serif;background:#0b1020}}
-.dark-tiles{{filter:invert(1) hue-rotate(195deg) saturate(.55) brightness(.92) contrast(.92)}}
-.leaflet-control-attribution{{background:#0b1020aa!important;color:#6b7fae!important}} .leaflet-control-attribution a{{color:#8fa3c8!important}}
-.tip b{{color:#e5edff}} .tip{{font-size:12px;line-height:1.35}}
-.leaflet-tooltip{{background:#121a30;color:#c9d6f2;border:1px solid #2a3a60;border-radius:8px;box-shadow:none}}
-.leaflet-tooltip-top:before{{border-top-color:#2a3a60}}
-.legend{{position:absolute;z-index:999;right:10px;bottom:10px;background:#121a30e6;border:1px solid #2a3a60;border-radius:10px;
-padding:8px 10px;color:#c9d6f2;font:11px Inter,system-ui,sans-serif}}
+<style>html,body,#m{{margin:0;height:100%;background:#EEF0EA}}
+.leaflet-container{{font-family:Inter,system-ui,sans-serif;background:#EEF0EA}}
+.soft-tiles{{filter:grayscale(.55) saturate(.7) contrast(.95) brightness(1.03)}}
+.tip b{{color:#101F2C}} .tip{{font-size:12px;line-height:1.4;color:#62717D}}
+.leaflet-tooltip{{background:#fff;color:#101F2C;border:1px solid #E4E8E5;border-radius:8px;box-shadow:0 2px 8px rgba(16,31,44,.12)}}
+.leaflet-control-attribution{{background:#ffffffcc!important;color:#62717D!important}}
+.legend{{position:absolute;z-index:999;right:10px;bottom:22px;background:#fffffff2;border:1px solid #E4E8E5;border-radius:10px;
+padding:8px 10px;color:#101F2C;font:11px Inter,system-ui,sans-serif;box-shadow:0 2px 8px rgba(16,31,44,.08)}}
 .legend i{{display:inline-block;width:9px;height:9px;border-radius:50%;margin-right:6px;vertical-align:middle}}</style></head>
 <body><div id="m"></div><div class="legend" id="lg"></div>
 <script>
@@ -119,17 +118,17 @@ var pts={data};
 var map=L.map('m',{{zoomControl:true,attributionControl:true,minZoom:3,maxZoom:10,scrollWheelZoom:false}});
 map.fitBounds([[6.5,67.5],[36.0,98.0]]);
 L.tileLayer('https://tile.openstreetmap.org/{{z}}/{{x}}/{{y}}.png',
-  {{attribution:'&copy; OpenStreetMap contributors',maxZoom:19,className:'dark-tiles'}}).addTo(map);
+  {{attribution:'&copy; OpenStreetMap contributors',maxZoom:19,className:'soft-tiles'}}).addTo(map);
 var legend={{}};
 pts.filter(function(p){{return p.kind==='candidate'}}).forEach(function(p){{
-  L.circleMarker([p.lat,p.lon],{{radius:4,color:'#6b7fae',weight:0,fillColor:'#6b7fae',fillOpacity:.55}})
+  L.circleMarker([p.lat,p.lon],{{radius:4,color:'#8A97A3',weight:0,fillColor:'#8A97A3',fillOpacity:.7}})
    .bindTooltip('<div class="tip"><b>'+p.name+'</b><br>'+p.city+' &middot; discovered, not investigated</div>').addTo(map);}});
 pts.filter(function(p){{return p.kind==='ranked'}}).forEach(function(p){{
   legend[p.rec]=p.color;
-  L.circleMarker([p.lat,p.lon],{{radius:15,color:p.color,weight:0,fillColor:p.color,fillOpacity:.18}}).addTo(map);
-  L.circleMarker([p.lat,p.lon],{{radius:9,color:'#0b1020',weight:2,fillColor:p.color,fillOpacity:1}})
+  L.circleMarker([p.lat,p.lon],{{radius:15,color:p.color,weight:0,fillColor:p.color,fillOpacity:.22}}).addTo(map);
+  L.circleMarker([p.lat,p.lon],{{radius:9,color:'#ffffff',weight:2.5,fillColor:p.color,fillOpacity:1}})
    .bindTooltip('<div class="tip"><b>#'+p.rank+' '+p.name+'</b><br>'+p.city+' &middot; fit '+p.fit+'<br>'+p.rec+'</div>').addTo(map);}});
-var lg='<div><i style="background:#6b7fae"></i>Discovered, not investigated</div>';
+var lg='<div><i style="background:#8A97A3"></i>Discovered, not investigated</div>';
 Object.keys(legend).forEach(function(k){{lg+='<div><i style="background:'+legend[k]+'"></i>'+k+'</div>'}});
 document.getElementById('lg').innerHTML=lg;
 </script></body></html>"""

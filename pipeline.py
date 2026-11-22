@@ -132,8 +132,18 @@ Return {{"screened": [{{"id": int, "partner_type": str, "relevance": int, "serve
         if s.get("id") in by_id:
             merged.append({**by_id[s["id"]], **{k: s.get(k) for k in
                            ("partner_type", "relevance", "serves_target", "sells_competing_product", "reason")}})
-    merged.sort(key=lambda x: -(x.get("relevance") or 0))
-    return merged
+    return rank_screened(merged, [c["id"] for c in cands])
+
+
+def rank_screened(merged: list[dict], order: list) -> list[dict]:
+    """Deterministic shortlist order: model relevance (highest first), then evidence of serving the target, then no
+    competing product, then Crustdata's own search rank, so ties no longer depend on the model's output order.
+    (A coarser banding of relevance was tried on run demo4 and gave weaker results, so it was reverted.)"""
+    pos = {i: n for n, i in enumerate(order)}
+    serves = {"yes": 0, "likely": 1, "unknown": 2, "no": 3}
+    compete = {"no": 0, "possible": 1, "yes": 2}
+    return sorted(merged, key=lambda x: (-(x.get("relevance") or 0), serves.get(str(x.get("serves_target")), 2),
+                                         compete.get(str(x.get("sells_competing_product")), 1), pos.get(x["id"], 10**6)))
 
 
 # ============================ Agent 2: Company Intelligence ============================
@@ -318,7 +328,23 @@ Return JSON:
  "stakeholder": {{"person_id": int|null, "why": str}},
  "open_questions": [str],  // what a human must still establish
  "proposal": {{"subject": str, "body": "short, specific, only verified facts, no promises, no invented relationship; sign as '[Your name], [Requester]'"}}}}"""
-    return llm.ask_json(run_id, f"assess:{c['id']}", system, prompt)
+    # Scoring consistency: one model draw moved scores by ~6 points between reruns, so draw several and keep the
+    # MEDIAN one whole (scores and their written reasons stay consistent with each other).
+    samples = []
+    for k in range(ASSESS_SAMPLES):
+        try:
+            samples.append(llm.ask_json(run_id, f"assess:{c['id']}:{k}", system, prompt))
+        except llm.LLMError:
+            if not samples and k == ASSESS_SAMPLES - 1:
+                raise
+    scored = sorted(((scoring.compute_fit(s.get("components", {}), (s.get("competitive_overlap") or {}).get("level", "none"))["score"] or 0, i)
+                     for i, s in enumerate(samples)))
+    pick = samples[scored[len(scored) // 2][1]]
+    pick["assessment_samples"] = {"n": len(samples), "scores": [round(v, 1) for v, _ in scored]}
+    return pick
+
+
+ASSESS_SAMPLES = 3
 
 
 def finalise(run_id: str, brief: dict, c: dict, enr: dict, ident: dict, claims: list[dict], a: dict) -> dict:
@@ -351,13 +377,14 @@ def finalise(run_id: str, brief: dict, c: dict, enr: dict, ident: dict, claims: 
             "recommendation": scoring.recommendation(fit["score"], conf["level"], flags),
             "competitive_overlap": overlap, "mutual_value": a.get("mutual_value"), "partnership_model": a.get("partnership_model"),
             "stakeholder": {**(person or {}), "why": (a.get("stakeholder") or {}).get("why")} if person else None,
+            "assessment_samples": a.get("assessment_samples"),
             "open_questions": a.get("open_questions", []), "proposal": {**(a.get("proposal") or {}), "status": "DRAFT - not sent. Requires human approval."},
             "claims": claims}
 
 
 # ============================ Orchestration ============================
 def run(run_id: str, request: str, *, n_report: int = 5, shortlist: int = 6, crash_after: str | None = None,
-        credit_ceiling: float | None = None) -> dict:
+        credit_ceiling: float | None = None, simulate_failure: str | None = None) -> dict:
     store.create_run(run_id, request)
     cd = Crustdata(run_id, credit_ceiling=credit_ceiling)
     log(run_id, f"run {run_id}: credits available {cd.balance():.1f}; ceiling {cd.credit_ceiling}")
@@ -386,9 +413,17 @@ def run(run_id: str, request: str, *, n_report: int = 5, shortlist: int = 6, cra
         for c in short:
             cid = str(c["id"])
             log(run_id, f"[intelligence] {c['name']}")
+            prev = store.get_stage(run_id, "result", cid)
+            if prev and prev.get("held_for_review"):
+                # A held candidate is a tool failure, not an answer: retry it on resume instead of freezing the failure.
+                store.execute("DELETE FROM stages WHERE run_id=? AND stage='result' AND item=?", (run_id, cid))
+                log(run_id, f"[recovery] retrying {c['name']}, which was held for review on an earlier attempt")
             try:
                 ident = stage(run_id, "identity", cid, lambda: resolve_identity(cd, c))
                 checkpoint("identity")
+                if simulate_failure == "enrich" and not store.get_stage(run_id, "_simfail"):
+                    store.put_stage(run_id, "_simfail", {"company": c["name"]})
+                    raise CrustdataError("simulated tool outage during enrichment (503)")
                 enr_raw = stage(run_id, "enrich", cid, lambda: compact_enrichment(
                     (cd.company_enrich(domains=[c["domain"]], fields=["basic_info", "headcount", "funding", "people"])[0]["matches"] or [{}])[0].get("company_data", {})))
                 checkpoint("enrich")
@@ -437,12 +472,15 @@ if __name__ == "__main__":
     ap.add_argument("--request", default=DEMO_REQUEST)
     ap.add_argument("--run-id", default=None)
     ap.add_argument("--crash-after", default=None, help="brief|discover|screen|identity|enrich|research|claims")
+    ap.add_argument("--simulate-failure", default=None, choices=["enrich"],
+                    help="make the first company's enrichment fail once (demo: held for review, then retried on resume)")
     ap.add_argument("--credit-ceiling", type=float, default=None)
     ap.add_argument("--shortlist", type=int, default=6)
     args = ap.parse_args()
     rid = args.run_id or f"run-{uuid.uuid4().hex[:8]}"
     print("run id:", rid)
     try:
-        run(rid, args.request, crash_after=args.crash_after, credit_ceiling=args.credit_ceiling, shortlist=args.shortlist)
+        run(rid, args.request, crash_after=args.crash_after, credit_ceiling=args.credit_ceiling, shortlist=args.shortlist,
+            simulate_failure=args.simulate_failure)
     except (SimulatedCrash, BudgetExceeded, CreditsExhausted):
         raise SystemExit(2)  # already logged and recorded in the runs table; resumable with the same --run-id

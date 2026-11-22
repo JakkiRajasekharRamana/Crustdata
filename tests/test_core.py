@@ -80,3 +80,28 @@ def test_quote_matching_ignores_punctuation_and_case():
 def test_duplicate_names_collapse():
     assert pipeline.norm_name("Acme Technologies Pvt. Ltd.") == pipeline.norm_name("ACME Technologies Private Limited")
     assert pipeline.norm_domain("https://www.Acme.com/about") == "acme.com"
+
+
+def test_assess_keeps_the_median_sample(monkeypatch):
+    import llm
+    import pipeline
+
+    def comp(v):
+        return {"components": {k: {"score": v, "why": f"v{v}", "claim_ids": []} for k in ("strategic", "capability", "market_access", "feasibility")},
+                "competitive_overlap": {"level": "none"}}
+
+    draws = iter([comp(90), comp(60), comp(70)])
+    monkeypatch.setattr(llm, "ask_json", lambda *a, **k: next(draws))
+    brief = {"requester": {"offering": "x"}, "objective": "o", "target_industry": "t", "country": "India"}
+    out = pipeline.assess("t-median", brief, {"id": 1, "name": "A", "domain": "a.com"}, {}, [])
+    assert out["components"]["strategic"]["why"] == "v70"
+    assert out["assessment_samples"] == {"n": 3, "scores": [60.0, 70.0, 90.0]}
+
+
+def test_shortlist_ties_break_by_target_fit_then_crustdata_rank():
+    import pipeline
+    items = [{"id": 1, "relevance": 90, "serves_target": "likely"}, {"id": 2, "relevance": 90, "serves_target": "yes"},
+             {"id": 3, "relevance": 90, "serves_target": "yes"}, {"id": 4, "relevance": 95, "serves_target": "unknown"}]
+    shuffled = [items[3], items[1], items[0], items[2]]
+    order = [1, 2, 3, 4]
+    assert [x["id"] for x in pipeline.rank_screened(items, order)] == [4, 2, 3, 1] == [x["id"] for x in pipeline.rank_screened(shuffled, order)]

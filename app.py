@@ -102,6 +102,13 @@ elif page.startswith("2"):
         if st.button("Resume this run (continues from the last checkpoint, no repeated paid calls)"):
             launch(current, r["request"], 300)
             st.rerun()
+    fin_now = final_for(current)
+    held = [p["company"]["name"] for p in (fin_now or {}).get("ranked", []) if p.get("held_for_review")]
+    if held:
+        st.warning(f"Held for review because a tool failed (not treated as 'no evidence'): {', '.join(held)}")
+        if not DEMO and st.button("Retry held candidates (finished stages are not repeated)"):
+            launch(current, r["request"], 300)
+            st.rerun()
     logs = store.query("SELECT output_json FROM stages WHERE run_id=? AND stage='_log' ORDER BY item", (current,))
     import json
     msgs = [json.loads(x["output_json"])["msg"] for x in logs]

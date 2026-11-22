@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 import html
+from urllib.parse import quote
 import sys
 from pathlib import Path
 
@@ -138,6 +139,13 @@ def build_report(final: dict) -> str:
                 link = "redirect link, destination could not be resolved"
             else:
                 link = f'<a href="{e(raw)}">{e(raw[:70])}</a>' if raw.startswith("http") else e(raw)
+            target = canon or (raw if raw.startswith("http") and "google." not in raw else "")
+            if target and c.get("status") == "verified" and c.get("quote"):
+                # Text-fragment link: supporting browsers scroll to and highlight the exact quoted passage on the page.
+                frag = quote(" ".join(str(c["quote"]).split()[:9]), safe="")
+                link += f'<br><a href="{e(target.split("#")[0])}#:~:text={frag}"><small>open at the quoted passage</small></a>'
+            elif raw.startswith("crustdata:"):
+                link += f'<br><small>field {e(c.get("source_ref"))}</small>'
             stype = LABEL.get(c.get("corroboration") or "", "")
             h.append(f"<tr><td>{e(c['claim_id'])}</td><td>{e(names.get(str(r['company']['id'])))}</td><td>{pill(c['status'])}</td><td>{e(c['claim'])}</td>"
                      f"<td>{link}<br><small>{e(c.get('source_ref'))}</small></td><td><small>{e(stype)}</small></td><td class=q>{e(c.get('quote') or '')}</td><td>{e(c.get('retrieved_at'))}</td></tr>")

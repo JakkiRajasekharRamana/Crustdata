@@ -98,7 +98,7 @@ Tests: `test_source_classes`, the four `canonical_url` tests, `test_company_mark
 
 **Method.** `scripts/reconcile_credit_ledger.py` compares the ledger with the authoritative `GET /account/credits` (free).
 **Result.** Stated starting balance 15,200 (event 15,000 + 200 top-up). API balance now 15,073.66, so 126.34 spent. The ledger sums to 126.21 over 162 Crustdata rows (31 cache hits at 0 credits, 0 non-200 rows with a cost). **Difference 0.13 credits**, which is exactly my own manual `/person/search` probe made outside the central client during this audit. Credits come from the `X-Credits-Used` header. Every pipeline call goes through `Crustdata.call`.
-**Cost separation.** (1) Crustdata credits: `demo3` (cold cache) 24.8; `demo6` 11.53 only because it reused cached responses, so do not quote it as a per-job cost. (2) Crustdata money: **unknown**, no per-credit price is documented for this account. (3) Model tokens: **not stored** (only call count and an estimate), a gap. (4) Model money: about $0.085-0.106 per run at an assumed list price; the free tier billed $0. (5) Hosting: not measured. (6) Total cost per brief in money: **cannot be stated honestly**. The README now says no margin is claimed. The earlier "94% margin" is withdrawn.
+**Cost separation.** (1) Crustdata credits: `demo3` (cold cache) 24.8; `demo6` 11.53 only because it reused cached responses, so do not quote it as a per-job cost. (2) Crustdata money: **unknown**, no per-credit price is documented for this account. (3) Model tokens: **stored** in the `request_json` field of each model row of the ledger (`demo3`: 53,108 input and 27,652 output tokens; `demo6`: 56,918 and 35,489). An earlier version of this report said they were not stored; that was wrong. (4) Model money: about $0.085-0.106 per run at an assumed list price; the free tier billed $0. (5) Hosting: not measured. (6) Total cost per brief in money: **cannot be stated honestly**. The README now says no margin is claimed. The earlier "94% margin" is withdrawn.
 
 ### 3.6 Robustness
 
@@ -154,7 +154,7 @@ Things that got **worse or stayed weak**: confidence labels now carry little inf
 - Verification still proves a quote exists in the fetched text. It does not prove the statement is true. "Independent" evidence is rare for small firms in this data.
 - Redirect resolution depends on Google responding.
 - Decision-maker coverage is capped by what Crustdata holds.
-- No money cost per brief can be stated; model tokens are not stored.
+- No money cost per brief can be stated: Crustdata's price per credit and hosting costs are unknown, and the model cost is an estimate at an assumed list price (the free tier billed $0).
 - The business case (price, buyers, frequency) is untested with any customer.
 - No continuous-monitoring feature; no CRM export.
 

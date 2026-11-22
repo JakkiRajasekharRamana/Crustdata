@@ -232,7 +232,7 @@ def goto_profile(company_id: str) -> None:
 
 rs = runs()
 labels = {r["run_id"]: f'{r["run_id"]}  ·  {r["status"]}' for r in rs}
-HEADLINE_RUN = "demo6"  # the run produced by the post-repair code (see PARTNERSCOUT_POST_REPAIR_AUDIT.md)
+HEADLINE_RUN = "demo6"  # the run produced by the post-repair code (see docs/engineering-audit.md)
 st.sidebar.markdown("<div style='height:8px'></div>", unsafe_allow_html=True)
 current = st.sidebar.selectbox("Research run", list(labels), format_func=lambda k: labels[k],
                                index=list(labels).index(HEADLINE_RUN) if HEADLINE_RUN in labels else 0) if rs else None

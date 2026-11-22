@@ -97,7 +97,7 @@ What worked: quote verification (it catches fabricated "clients"), checkpointed 
 
 ## 6. Evaluation (measured, not claimed)
 
-Sample request: *"We are a cybersecurity SaaS company looking to expand our distribution in India's banking and financial services sector. Identify five potential channel or technology partners..."* All companies below came from live Crustdata responses on 22 Nov 2026; nothing is mocked. We ran the sample request four times (`demo1` to `demo4`), plus a crash test (`demo-crash`). `demo3` is the headline run: it used the final scoring code and also carries the failure-recovery test. Reproduce the numbers with `python scripts/evaluate.py <run_id>`.
+Sample request: *"We are a cybersecurity SaaS company looking to expand our distribution in India's banking and financial services sector. Identify five potential channel or technology partners..."* All companies below came from live Crustdata responses on 22 Nov 2026; nothing is mocked. We ran the sample request four times (`demo1` to `demo4`), plus a crash test (`demo-crash`). `demo3` is the headline run: it used the final scoring code and also carries the failure-recovery test. Reproduce the numbers with `python scripts/evaluate_run.py <run_id>`.
 
 **Automated measurements (run `demo3`)**
 
@@ -117,7 +117,7 @@ Sample request: *"We are a cybersecurity SaaS company looking to expand our dist
 | Crustdata credits for the whole run, every attempt included | 24.80 (about 4 per company) |
 | Model cost, estimated at list price (the free tier billed $0) | about $0.085 |
 
-**Hand-checked.** Evidence coverage only proves a quote *exists* in its source, not that it supports the claim. We read 15 randomly sampled verified claims next to their quotes (`scripts/sample_claims.py`, fixed seed) on `demo3`, and earlier 15 on `demo1`: all 30 were supported by their quote, although a few were thin marketing labels (for example "Deploy Advanced Anti-Fraud"). The reviewer was the builder, not an independent party, and the sample is small.
+**Hand-checked.** Evidence coverage only proves a quote *exists* in its source, not that it supports the claim. We read 15 randomly sampled verified claims next to their quotes (`scripts/sample_claims_for_review.py`, fixed seed) on `demo3`, and earlier 15 on `demo1`: all 30 were supported by their quote, although a few were thin marketing labels (for example "Deploy Advanced Anti-Fraud"). The reviewer was the builder, not an independent party, and the sample is small.
 
 **The hard cases the product met (all in `demo3`).**
 * *Strong capability match, competing product:* Finonyx has 15 years serving banks, but its own "DocSecure" document-protection product overlaps the requester's offering. A verified claim backs the conflict, so the recommendation is *Approach with caution*, and the fit score carries a visible penalty.
@@ -125,7 +125,7 @@ Sample request: *"We are a cybersecurity SaaS company looking to expand our dist
 * *Too new to trust:* Dvion's registration number carries 2026 while its site claims a financial-sector focus. The disagreement is flagged *needs_review* and the company is deprioritised, not dismissed.
 
 **Recovery.**
-* *Crash (run `demo-crash`).* We killed the run right after the first company's enrichment (`--crash-after enrich`) and restarted with the same run id. The restart skipped finished stages and made **0 repeated paid requests** (`scripts/check_dupes.py`: 13 paid Crustdata calls, no identical request twice).
+* *Crash (run `demo-crash`).* We killed the run right after the first company's enrichment (`--crash-after enrich`) and restarted with the same run id. The restart skipped finished stages and made **0 repeated paid requests** (`scripts/check_repeated_paid_calls.py`: 13 paid Crustdata calls, no identical request twice).
 * *Tool outage (run `demo3`, `--simulate-failure enrich`).* The first company's enrichment failed once. The company was **held for review**, not scored as "no evidence", and the other five finished. Re-running the same run id retried only the held company: 23 paid Crustdata calls for the whole run, 0 identical paid requests repeated. Testing this found a bug: a held company was saved as a final result and would never have been retried; fixed.
 * Model overload (HTTP 503) was handled by rotating models and retrying, and a time ceiling once stopped a run cleanly before its last company, after which it resumed.
 
@@ -147,14 +147,14 @@ Discovery itself is stable (73 to 75 unique candidates each time); the screening
 * **Workflow completion and recovery rates:** four full runs and two induced failures; too few to report a percentage. `demo4` was made after a shortlist-ordering experiment that we then reverted because it gave weaker results.
 
 **Mistakes found by testing, and fixed**
-* A company got *High* confidence from its own marketing page alone. High first required a source that was not the company's own site; the post-repair audit found that still let directory listings count as independent, so the rule was tightened again (see PARTNERSCOUT_POST_REPAIR_AUDIT.md).
+* A company got *High* confidence from its own marketing page alone. High first required a source that was not the company's own site; the post-repair audit found that still let directory listings count as independent, so the rule was tightened again (see docs/engineering-audit.md).
 * A founding-year mismatch (2011 vs 2012) forced manual review. A conflict now needs a verbatim quote from both sides, and only material conflicts block a recommendation.
 * A trade association was shortlisted as a partner in an earlier run. The screening prompt now excludes associations, directories, media and government bodies; none appeared in the shortlists of `demo1` to `demo4`.
 * A held company would never have been retried on resume (found while testing the outage, fixed).
 
-A finished report for the post-repair run `demo6` is committed at [docs/sample_report_demo6.html](docs/sample_report_demo6.html) (open it in a browser; every claim links to its source in the last section); the app can generate one for any run.
+A finished report for the post-repair run `demo6` is committed at [docs/sample_report.html](docs/sample_report.html) (open it in a browser; every claim links to its source in the last section); the app can generate one for any run.
 
-**Post-repair audit.** An independent-style audit after these results (`PARTNERSCOUT_POST_REPAIR_AUDIT.md`) found and fixed: shortlist instability (screening now ranks by a deterministic code-computed score; 100% top-6 overlap over 10 repeats on a fixed pool, versus 73%), overstated "High" confidence (all 30 evaluated companies are now Medium under a source-quality rule), an evidence-table key that let later runs overwrite earlier runs, Google redirect citations, missing input validation and an uncaught invalid-JSON path. Decision-maker coverage did not improve (the people are not in the data). The post-repair run is `demo6`; whole-run scores still vary between runs.
+**Engineering audit.** A review of the code and measurements after these results (`docs/engineering-audit.md`) found and fixed: shortlist instability (screening now ranks by a deterministic code-computed score; 100% top-6 overlap over 10 repeats on a fixed pool, versus 73%), overstated "High" confidence (all 30 evaluated companies are now Medium under a source-quality rule), an evidence-table key that let later runs overwrite earlier runs, Google redirect citations, missing input validation and an uncaught invalid-JSON path. Decision-maker coverage did not improve (the people are not in the data). The post-repair run is `demo6`; whole-run scores still vary between runs.
 
 ## 7. Limitations
 * Company descriptions in the data graph are marketing text; a verified claim from a company's own website means "the company says so".
@@ -172,7 +172,7 @@ Ongoing monitoring of partners (Watcher), CRM export, multi-client tenancy, and 
 
 **Full run with your own keys:** see section 10.
 
-**Deploying the demo yourself** (Streamlit Community Cloud, free): point a new app at this repo, main file `app.py`, and set **no secrets**. With no `CRUSTDATA_API_KEY` the app automatically opens the committed snapshot `demo_data/demo.db` (regenerate it with `python scripts/export_demo.py demo1 demo2 demo3 demo4 demo-crash`).
+**Deploying the demo yourself** (Streamlit Community Cloud, free): point a new app at this repo, main file `app.py`, and set **no secrets**. With no `CRUSTDATA_API_KEY` the app automatically opens the committed snapshot `demo_data/demo.db` (regenerate it with `python scripts/export_demo_snapshot.py demo1 demo2 demo3 demo4 demo-crash`).
 
 ## 10. Run it from a fresh clone
 

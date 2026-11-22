@@ -1,5 +1,5 @@
 """Reconcile the local call ledger with the authoritative account balance (GET /account/credits is free).
-usage: python scripts/reconcile_credits.py STARTING_BALANCE
+usage: python scripts/reconcile_credit_ledger.py STARTING_BALANCE
 Credits per call come from the X-Credits-Used response header. Any call made OUTSIDE the central client (for example a
 manual curl or an exploratory script) is not in the ledger and shows up as an unexplained difference."""
 import os

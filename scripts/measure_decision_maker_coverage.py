@@ -1,6 +1,6 @@
 """Decision-maker coverage: how many shortlisted companies in finished runs have a verified decision-maker with and without
 the Person Search fallback. Makes LIVE Crustdata calls (0.13 credits each, only for companies with no people in their record).
-usage: python scripts/people_coverage.py RUN [RUN ...]"""
+usage: python scripts/measure_decision_maker_coverage.py RUN [RUN ...]"""
 import json
 import sys
 from pathlib import Path
@@ -32,4 +32,4 @@ before = sum(1 for r in rows if r["before"])
 after = before + sum(1 for r in rows if r["fallback_used"] and r["found"])
 print(json.dumps({"companies": tot, "coverage_before": f"{before}/{tot}", "coverage_after": f"{after}/{tot}",
                   "rows": [{k: r[k] for k in ("run", "company", "before", "n_returned", "found")} for r in rows if r["fallback_used"]]}, indent=1))
-Path(__file__).resolve().parent.parent.joinpath("audit_results", "people_coverage.json").write_text(json.dumps(rows, indent=1))
+Path(__file__).resolve().parent.parent.joinpath("evaluation_results", "people_coverage.json").write_text(json.dumps(rows, indent=1))

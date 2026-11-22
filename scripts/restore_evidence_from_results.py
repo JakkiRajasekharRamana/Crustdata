@@ -1,6 +1,6 @@
 """Rebuild the evidence table rows of finished runs from the claims stored inside each run's `final` result.
 Needed once, because the old table key (claim_id only) let a later run overwrite an earlier run's rows.
-usage: python scripts/rebuild_evidence.py [RUN ...]   (default: every run that has a final result)"""
+usage: python scripts/restore_evidence_from_results.py [RUN ...]   (default: every run that has a final result)"""
 import sys
 from pathlib import Path
 

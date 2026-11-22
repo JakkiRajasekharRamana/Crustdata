@@ -1,5 +1,5 @@
 """Export finished runs into a small committed SQLite snapshot used by the hosted read-only demo.
-usage: python scripts/export_demo.py demo1 demo-crash
+usage: python scripts/export_demo_snapshot.py demo1 demo-crash
 Only the named runs are copied (runs, calls, stages, evidence). The response cache is NOT copied."""
 import sqlite3
 import sys

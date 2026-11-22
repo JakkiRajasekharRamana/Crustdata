@@ -1,5 +1,5 @@
 """Measure what can be measured automatically from a finished run. Human-judged metrics are NOT computed here.
-usage: python scripts/evaluate.py RUN_ID   -> prints a markdown table (paste into README)"""
+usage: python scripts/evaluate_run.py RUN_ID   -> prints a markdown table (paste into README)"""
 import sys
 from collections import Counter
 from pathlib import Path

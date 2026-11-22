@@ -1,7 +1,7 @@
 """Audit regression tests.
 
 Everything here that talks to "Crustdata" uses a SIMULATED session (fault injection) and says so in its name. These are
-not live API responses and must never be reported as such. Live evidence lives in audit_results/ and the run databases.
+not live API responses and must never be reported as such. Live evidence lives in evaluation_results/ and the run databases.
 """
 import json
 import uuid

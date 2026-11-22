@@ -1,7 +1,7 @@
 """Ranking-stability experiment. Re-runs ONLY the screening/ranking step N times on the SAME candidate pool
 (the cached `discover` output of a finished run), so any difference between repeats is caused by the screening
 method itself (LLM randomness etc.), not by changing live data.
-usage: python scripts/stability_screen.py SOURCE_RUN N LABEL"""
+usage: python scripts/measure_ranking_stability.py SOURCE_RUN N LABEL"""
 import json
 import sys
 from pathlib import Path
@@ -13,7 +13,7 @@ import pipeline
 src, n, label = sys.argv[1], int(sys.argv[2]), sys.argv[3]
 brief = store.get_stage(src, "brief")
 cands = store.get_stage(src, "discover")
-out = Path(__file__).resolve().parent.parent / "audit_results" / f"stability_{label}.json"
+out = Path(__file__).resolve().parent.parent / "evaluation_results" / f"ranking_stability_{label}.json"
 runs = json.loads(out.read_text()) if out.exists() else []
 for k in range(len(runs), n):
     rid = f"t-audit-{label}-{k}"

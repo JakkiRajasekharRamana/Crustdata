@@ -1,5 +1,5 @@
 """Metrics for the ranking-stability experiment: top-K overlap, Spearman, Kendall tau, inclusion frequency.
-usage: python scripts/stability_metrics.py LABEL"""
+usage: python scripts/summarize_ranking_stability.py LABEL"""
 import json
 import sys
 from collections import Counter
@@ -34,7 +34,7 @@ def kendall(a, b):
 def main(label):
     runs = []
     for part in label.split("+"):  # several result files of the same method can be merged: label_a+label_b
-        runs += json.loads((Path(__file__).resolve().parent.parent / "audit_results" / f"stability_{part}.json").read_text())
+        runs += json.loads((Path(__file__).resolve().parent.parent / "evaluation_results" / f"ranking_stability_{part}.json").read_text())
     n = len(runs)
     out = {"label": label, "repeats": n}
     for K in (5, 6):
@@ -52,7 +52,7 @@ def main(label):
     cnt = Counter(i for r in runs for i in r["ranking"][:6])
     out["top6_inclusion_frequency"] = {names.get(str(i), str(i))[:30]: f"{v}/{n}" for i, v in cnt.most_common(12)}
     print(json.dumps(out, indent=1))
-    (Path(__file__).resolve().parent.parent / "audit_results" / f"stability_{label.replace('+', '_')}_metrics.json").write_text(json.dumps(out, indent=1))
+    (Path(__file__).resolve().parent.parent / "evaluation_results" / f"ranking_stability_{label.replace('+', '_')}_metrics.json").write_text(json.dumps(out, indent=1))
 
 
 main(sys.argv[1])

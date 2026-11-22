@@ -1,7 +1,7 @@
 """Re-evaluate finished runs with the improved evidence model: resolve Google redirect citations to their real destination,
 classify every source, and recompute evidence confidence with the source-quality-aware rule. Reports before/after.
 Network use: one HTTP request per distinct Google redirect link (Location header only; destination pages are not fetched).
-usage: python scripts/backfill_sources.py RUN [RUN ...]"""
+usage: python scripts/reclassify_sources.py RUN [RUN ...]"""
 import json
 import sys
 from pathlib import Path
@@ -58,4 +58,4 @@ resolved = sum(1 for v in cache.values() if v)
 print(json.dumps({"google_redirect_links": google_total, "resolved_to_destination": resolved, "unresolved": google_total - resolved,
                   "confidence_changes": [r for r in report if r["confidence_before"] != r["confidence_after"]],
                   "unchanged": sum(1 for r in report if r["confidence_before"] == r["confidence_after"]), "total": len(report)}, indent=1))
-Path(__file__).resolve().parent.parent.joinpath("audit_results", "backfill_sources.json").write_text(json.dumps(report, indent=1))
+Path(__file__).resolve().parent.parent.joinpath("evaluation_results", "backfill_sources.json").write_text(json.dumps(report, indent=1))

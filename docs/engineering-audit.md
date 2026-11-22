@@ -1,10 +1,10 @@
-# PartnerScout: post-repair audit
+# PartnerScout engineering audit
 
 Audit date: 22 Nov 2026. Baseline commit: `5d80f3b` (`Redesign UI as a light enterprise intelligence product`). Repairs were made on branch `audit-repairs`; Git history is unchanged and nothing was rewritten.
 
 This audit did **not** accept `PARTNERSCOUT_HACKATHON_JUDGE_REPORT.md` (the earlier 91.8/100 evaluation). Its claims were treated as unverified, checked against the code, the SQLite ledger and live runs, and several did not hold (section 2). The ratings below are **my own auditor ratings** using the official formula `Weighted score = (Rating / 5) x Weight`. They are judgements, not official scores.
 
-Reproduce everything with the scripts named in each section. Raw experiment output is in `audit_results/`.
+Reproduce everything with the scripts named in each section. Raw experiment output is in `evaluation_results/`.
 
 ---
 
@@ -23,16 +23,16 @@ Reproduce everything with the scripts named in each section. Raw experiment outp
 
 | # | Finding | Evidence |
 |---|---|---|
-| W1 | **Shortlist instability.** Historical runs `demo1`-`demo4` share only 3 of 36 shortlist slots (8.3% mean pairwise overlap; the earlier report said 25-33%). Re-running only the screening of the then-current code ten times on one fixed candidate pool gives 73% mean pairwise top-6 overlap (min 50%), 11 different companies selected | `scripts/stability_screen.py`, `audit_results/stability_baseline_metrics.json` |
-| W2 | **"High" evidence confidence was overstated.** The rule counted any verified claim that was not the company's own site as independent corroboration, including directory listings and the company's own LinkedIn posts. Of 30 investigated companies in five runs, 24 were rated High; none had regulator or news corroboration. The earlier report said High "strictly requires independent third-party corroboration" | `scripts/backfill_sources.py`, `audit_results/backfill_sources.json` |
+| W1 | **Shortlist instability.** Historical runs `demo1`-`demo4` share only 3 of 36 shortlist slots (8.3% mean pairwise overlap; the earlier report said 25-33%). Re-running only the screening of the then-current code ten times on one fixed candidate pool gives 73% mean pairwise top-6 overlap (min 50%), 11 different companies selected | `scripts/measure_ranking_stability.py`, `evaluation_results/ranking_stability_before_metrics.json` |
+| W2 | **"High" evidence confidence was overstated.** The rule counted any verified claim that was not the company's own site as independent corroboration, including directory listings and the company's own LinkedIn posts. Of 30 investigated companies in five runs, 24 were rated High; none had regulator or news corroboration. The earlier report said High "strictly requires independent third-party corroboration" | `scripts/reclassify_sources.py`, `evaluation_results/backfill_sources.json` |
 | W3 | **Evidence ledger was not run-isolated (new bug).** The `evidence` table was keyed by `claim_id` alone, e.g. `7523-c1`, so the same company in a later run silently overwrote the earlier run's rows. The table held 34 verified rows for `demo3` against 78 in its saved result | direct SQL; test `test_same_claim_id_in_two_runs_does_not_overwrite_the_earlier_run` |
 | W4 | Google redirect links were stored as citations (11 of 273 rows) | SQL on `evidence.source_url` |
-| W5 | Decision-maker coverage 17/24 = 70.8% (accuracy of those 17 = 100%, copied from the API record). The fallback to Person Search did not exist | `scripts/people_coverage.py` |
+| W5 | Decision-maker coverage 17/24 = 70.8% (accuracy of those 17 = 100%, copied from the API record). The fallback to Person Search did not exist | `scripts/measure_decision_maker_coverage.py` |
 | W6 | No input validation before the model or paid calls. A `200` response whose body was not JSON raised an uncaught `ValueError` in `crustdata.py` | code review; test `test_simulated_invalid_json...` |
 | W7 | No tests for 401, 402, 403, 429, 5xx, timeouts, bounded retries, cache idempotency | `tests/` before this audit |
 | W8 | **Economics claims in the earlier report are unsupported.** "~25 credits (~$2.50)" assumes about $0.10 per credit; no account pricing says so. "94.1% gross margin" depends on that and on unlisted costs. Its prices (Rs 4,999 / 29,999 / 89,999) disagree with the README (Rs 4,000 / 25,000). "Precision@5 90%" was judged by the same evaluator, with no labelled answer key | `README.md`, the earlier report |
 
-Claims of the earlier report that **did** check out: all 255 `verified` rows carry both a quote and a source (0 exceptions, by SQL); 0 repeated paid Crustdata requests in the benchmark runs (`scripts/check_dupes.py`); rate limits are read from `/account/endpoints`.
+Claims of the earlier report that **did** check out: all 255 `verified` rows carry both a quote and a source (0 exceptions, by SQL); 0 repeated paid Crustdata requests in the benchmark runs (`scripts/check_repeated_paid_calls.py`); rate limits are read from `/account/endpoints`.
 
 ---
 
@@ -49,12 +49,12 @@ Claims of the earlier report that **did** check out: all 255 `verified` rows car
 4. `composite = prescore + categorical adjustments`; order = composite, then Crustdata search rank.
 5. Deeper strategic evaluation (fit components, mutual value, conflict) still happens after investigation, using evidence.
 
-**Measured result** (ten repeats of the ranking step on the same 73-company pool of `demo3`; this isolates model randomness from live-data change):
+**Measured result** (10 to 11 repeats of the ranking step on the same 73-company pool of `demo3`; this isolates model randomness from live-data change):
 
 | Method | Top-6 mean pairwise overlap | Top-6 min | Top-5 mean | Distinct companies selected | Spearman (top 30)* | Kendall (top 30)* |
 |---|---:|---:|---:|---:|---:|---:|
 | Before (code at `5d80f3b`, 10 repeats) | 73% | 50% | 72% | 11 | 0.909 | 0.776 |
-| After (10 repeats, 2 processes) | **100%** | 100% | 100% | 6 | 1.000 | 1.000 |
+| After (11 repeats, 2 processes) | **100%** | 100% | 100% | 6 | 1.000 | 1.000 |
 | After, final lexicon (5 repeats) | **100%** | 100% | 100% | 6 | 1.000 | 1.000 |
 
 \* correlations are computed over the companies common to both top-30 lists.
@@ -73,7 +73,7 @@ Target (>= 90% agreement) is **met for the shortlist step under this definition*
 - Corroboration labels: `self_reported`, `independent` (regulator or reputable news only), `database_listing`, `api_record`, `weak`, plus `contradiction`, `unverified`, `inference`.
 - Confidence rule: **High** needs a regulator/news corroboration **or** two different directory **domains** (counted once per domain, so repeats of one listing do not add up), plus coverage >= 0.7, core categories and >= 6 verified claims. Everything else is Medium or Low.
 - Canonical URLs: Google "goto" links are opaque tokens, so the destination can only be read from the redirect's `Location` header. `canonicalize()` follows at most 3 hops, only while the URL is still a Google link, never requests the destination page, rejects non-http targets and strips tracking parameters. If it cannot resolve, the report says "redirect link, destination could not be resolved" and the source is classed unclassified, never "verified canonical".
-- Fixed in the same pass: the evidence table key is now `(run_id, claim_id)` with an automatic, lossless migration; `scripts/rebuild_evidence.py` restored every run's rows from the saved results.
+- Fixed in the same pass: the evidence table key is now `(run_id, claim_id)` with an automatic, lossless migration; `scripts/restore_evidence_from_results.py` restored every run's rows from the saved results.
 - A bug in my own first rule was caught on live data: LinkedIn was counted as a directory, so `demo6` DebiLink became High on LinkedIn posts plus Justdial. LinkedIn is now "company social profile" (self-reported).
 
 **After (measured).**
@@ -88,7 +88,7 @@ Tests: `test_source_classes`, the four `canonical_url` tests, `test_company_mark
 
 **Before.** Only the company record. Coverage 17/24 = 70.8%, accuracy 17/17.
 **Change.** `find_people()` runs only when the record lists no decision-makers, founders or C-level people. It calls `POST /person/search` filtered on `experience.employment_details.current.company_id` (the filter field comes from the API's own error message listing supported fields; checked live), requests only name, title and id, and keeps a person only if the **title** is senior and relevant (partnership/BD/strategy roles first, then top executives). Checkpointed as stage `people`, so it is not repeated on resume.
-**After (live, `scripts/people_coverage.py`, 0.13 credits per lookup).** For the 7 companies without a decision-maker, Person Search returned 0-4 current people each: sales managers, developers, network administrators, an R&D specialist. **None had a relevant senior title, so 0 were added.** Coverage stays **17/24 = 70.8%**; accuracy stays 100% (nothing was invented or padded). `demo6`: 4/6 (66.7%). I report this as no coverage gain: the people are not in the data, and lowering the title bar would have raised coverage by lowering accuracy.
+**After (live, `scripts/measure_decision_maker_coverage.py`, 0.13 credits per lookup).** For the 7 companies without a decision-maker, Person Search returned 0-4 current people each: sales managers, developers, network administrators, an R&D specialist. **None had a relevant senior title, so 0 were added.** Coverage stays **17/24 = 70.8%**; accuracy stays 100% (nothing was invented or padded). `demo6`: 4/6 (66.7%). I report this as no coverage gain: the people are not in the data, and lowering the title bar would have raised coverage by lowering accuracy.
 
 ### 3.4 Input validation
 
@@ -96,7 +96,7 @@ Tests: `test_source_classes`, the four `canonical_url` tests, `test_company_mark
 
 ### 3.5 Credit accounting
 
-**Method.** `scripts/reconcile_credits.py` compares the ledger with the authoritative `GET /account/credits` (free).
+**Method.** `scripts/reconcile_credit_ledger.py` compares the ledger with the authoritative `GET /account/credits` (free).
 **Result.** Stated starting balance 15,200 (event 15,000 + 200 top-up). API balance now 15,073.66, so 126.34 spent. The ledger sums to 126.21 over 162 Crustdata rows (31 cache hits at 0 credits, 0 non-200 rows with a cost). **Difference 0.13 credits**, which is exactly my own manual `/person/search` probe made outside the central client during this audit. Credits come from the `X-Credits-Used` header. Every pipeline call goes through `Crustdata.call`.
 **Cost separation.** (1) Crustdata credits: `demo3` (cold cache) 24.8; `demo6` 11.53 only because it reused cached responses, so do not quote it as a per-job cost. (2) Crustdata money: **unknown**, no per-credit price is documented for this account. (3) Model tokens: **not stored** (only call count and an estimate), a gap. (4) Model money: about $0.085-0.106 per run at an assumed list price; the free tier billed $0. (5) Hosting: not measured. (6) Total cost per brief in money: **cannot be stated honestly**. The README now says no margin is claimed. The earlier "94% margin" is withdrawn.
 
@@ -114,14 +114,14 @@ Tests: `test_source_classes`, the four `canonical_url` tests, `test_company_mark
 
 ### 3.8 Deliverable
 
-The report now has a source-type column, canonical links, an explicit key to what each source type can prove, a print layout, and the relationship dimensions in the profile. It keeps the existing 14 sections. A regenerated report for `demo6` is in `docs/sample_report_demo6.html`.
+The report now has a source-type column, canonical links, an explicit key to what each source type can prove, a print layout, and the relationship dimensions in the profile. It keeps the existing 14 sections. A regenerated report for `demo6` is in `docs/sample_report.html`.
 
 ---
 
 ## 4. Files modified or added
 
 Modified: `pipeline.py`, `crustdata.py`, `evidence.py`, `scoring.py`, `store.py`, `report.py`, `app.py`, `README.md`, `demo_data/demo.db`.
-Added: `ranking.py`, `validation.py`, `tests/test_audit.py`, `scripts/stability_screen.py`, `scripts/stability_metrics.py`, `scripts/people_coverage.py`, `scripts/reconcile_credits.py`, `scripts/backfill_sources.py`, `scripts/rebuild_evidence.py`, `audit_results/*.json`, `docs/sample_report_demo6.html`.
+Added: `ranking.py`, `validation.py`, `tests/test_reliability_and_evidence.py`, `scripts/measure_ranking_stability.py`, `scripts/summarize_ranking_stability.py`, `scripts/measure_decision_maker_coverage.py`, `scripts/reconcile_credit_ledger.py`, `scripts/reclassify_sources.py`, `scripts/restore_evidence_from_results.py`, `evaluation_results/*.json`, `docs/sample_report.html`.
 Historical results of runs `demo1`-`demo4` were re-evaluated in place by `backfill_sources.py` (confidence and recommendation recomputed from the same claims; scores untouched).
 
 ## 5. Tests executed

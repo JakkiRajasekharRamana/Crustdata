@@ -2,7 +2,7 @@
 
 Why this exists: the original screen asked the model for a 0-100 "relevance" per company in batches of 20. Many companies
 tied at 85-100 and the model's numbers moved between identical runs, so the top-6 changed (see
-PARTNERSCOUT_POST_REPAIR_AUDIT.md for the measured overlap). Here the ORDER of the pool is computed by code from the
+docs/engineering-audit.md for the measured overlap). Here the ORDER of the pool is computed by code from the
 company's own structured attributes and description and the parsed brief, identically for every candidate (no batches,
 no per-batch calibration). The model is used only for categorical judgements (partner type, serves target segment,
 sells a competing product), and its free-form 0-100 score no longer decides the order.

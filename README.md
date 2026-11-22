@@ -42,10 +42,10 @@ It is deliberately **not** a lead-generation or outbound-sales tool. Lead tools 
 
 ## 3. How it is built
 
-**Diagrams.** Open in draw.io (editable, no sign-in needed):
+**Diagrams.** Both diagrams on one draw.io page, labelled Part 1 (technical) and Part 2 (business), editable without signing in:
 
-* [Technical architecture](https://app.diagrams.net/#Uhttps%3A%2F%2Fraw.githubusercontent.com%2FJakkiRajasekharRamana%2FCrustdata%2Fmain%2Fdocs%2Fdiagrams%2Ftechnical-architecture.drawio) ([file](docs/diagrams/technical-architecture.drawio))
-* [Business architecture](https://app.diagrams.net/#Uhttps%3A%2F%2Fraw.githubusercontent.com%2FJakkiRajasekharRamana%2FCrustdata%2Fmain%2Fdocs%2Fdiagrams%2Fbusiness-architecture.drawio) ([file](docs/diagrams/business-architecture.drawio))
+* [PartnerScout architecture, technical and business](https://app.diagrams.net/#Uhttps%3A%2F%2Fraw.githubusercontent.com%2FJakkiRajasekharRamana%2FCrustdata%2Fmain%2Fdocs%2Fdiagrams%2Fpartnerscout-architecture.drawio) ([file](docs/diagrams/partnerscout-architecture.drawio))
+* Separate pages: [technical only](https://app.diagrams.net/#Uhttps%3A%2F%2Fraw.githubusercontent.com%2FJakkiRajasekharRamana%2FCrustdata%2Fmain%2Fdocs%2Fdiagrams%2Ftechnical-architecture.drawio), [business only](https://app.diagrams.net/#Uhttps%3A%2F%2Fraw.githubusercontent.com%2FJakkiRajasekharRamana%2FCrustdata%2Fmain%2Fdocs%2Fdiagrams%2Fbusiness-architecture.drawio)
 
 
 

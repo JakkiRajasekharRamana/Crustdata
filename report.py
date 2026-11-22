@@ -8,7 +8,8 @@ from pathlib import Path
 import store
 
 CSS = """
-body{font:15px/1.55 system-ui,Segoe UI,sans-serif;color:#1a1f2b;max-width:1000px;margin:32px auto;padding:0 20px}
+html{background:#fff;color-scheme:light}
+body{font:15px/1.55 system-ui,Segoe UI,sans-serif;color:#1a1f2b;background:#fff;max-width:1000px;margin:0 auto;padding:32px 20px}
 h1{font-size:26px;margin:0}h2{margin-top:34px;border-bottom:2px solid #e3e7ee;padding-bottom:6px}h3{margin-bottom:4px}
 .sub{color:#5b6475}.card{border:1px solid #dfe4ec;border-radius:10px;padding:16px 18px;margin:16px 0;background:#fff}
 table{border-collapse:collapse;width:100%;font-size:13.5px}th,td{border-bottom:1px solid #e8ebf1;padding:6px 8px;text-align:left;vertical-align:top}

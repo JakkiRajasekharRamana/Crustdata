@@ -50,6 +50,15 @@ See [docs/architecture.md](docs/architecture.md) for the diagram.
 * **State**: SQLite (call ledger, response cache, stage checkpoints, evidence ledger, approvals).
 * **UI**: Streamlit with four screens; **report**: self-contained HTML (print to PDF).
 
+### Partner Ecosystem and Partnership Pipeline
+
+* **Partner Ecosystem screen.** A map with clickable company markers and a company list that stay in sync: clicking a marker selects the company in the list and opens its details, and choosing a company in the selector highlights its marker. Filters: geography (city), industry signals, screened partner type and fit score (with a switch for companies that have no fit score yet).
+* **Partner details.** Saved city, partner type, description, fit (investigated companies) or screening relevance (the others, clearly marked as a model judgement), current stage, and an *Open full profile* button for investigated companies.
+* **Partnership Pipeline screen.** Stages: Discovered, Investigating, Verified, Shortlisted, Outreach Drafted, Approved, Archived. It lists every discovered candidate and every investigated partner. Stage changes are saved in SQLite (`pipeline_stages`). The first four stages and Approved are derived from the run (search, identity/research started or a tool failed, evidence checked, recommended, draft approved); Outreach Drafted and Archived are set by a person.
+* **Grounded data, with fallbacks.** Locations are approximate city centres matched by keyword from the saved city text (`geo.py`); companies whose text matches no known city are counted as *not mappable* and not drawn, never guessed. "Industry signals" are keywords from the company's own description and are labelled as hints, not verified facts. The map says that no relationships between companies are drawn because this build has no source for them, and that coverage is limited to the companies this run's searches found, not the whole market.
+* **Draft-only approvals.** Approving a draft records the decision in the `approvals` table and moves the company to Approved. It does not send anything; there is no "sent" stage.
+* **Files.** `ecosystem.py` (data layer), `components/ecosystem_map/index.html` (the two-way map component, Leaflet with OpenStreetMap tiles, needs internet), `tests/test_ecosystem.py` (synthetic fixtures, labelled as such).
+
 ### Sources and checks
 | Source | Used for |
 |---|---|

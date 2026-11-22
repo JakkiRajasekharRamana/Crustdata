@@ -61,6 +61,10 @@ CREATE TABLE IF NOT EXISTS evidence (
   canonical_url TEXT, source_class TEXT, source_org TEXT, corroboration TEXT,
   PRIMARY KEY (run_id, claim_id)
 );
+-- Pipeline stage a PERSON set for a company (the default stage is derived from run data, see ecosystem.py).
+CREATE TABLE IF NOT EXISTS pipeline_stages (
+  run_id TEXT, company_id TEXT, stage TEXT, updated_at REAL, note TEXT, PRIMARY KEY (run_id, company_id)
+);
 -- Human approvals. Approving records intent only; PartnerScout never contacts anyone.
 CREATE TABLE IF NOT EXISTS approvals (
   id INTEGER PRIMARY KEY AUTOINCREMENT, run_id TEXT, company_id TEXT, action TEXT, ts REAL, note TEXT
@@ -157,3 +161,8 @@ def put_evidence(row: dict) -> None:
     cols = EVIDENCE_BASE + EVIDENCE_EXTRA
     execute(f"INSERT OR REPLACE INTO evidence ({','.join(cols)}) VALUES ({','.join(':' + c for c in cols)})",
             {c: row.get(c) for c in cols})
+
+
+def set_pipeline_stage(run_id: str, company_id: str, stage: str, note: str | None = None) -> None:
+    execute("INSERT OR REPLACE INTO pipeline_stages(run_id, company_id, stage, updated_at, note) VALUES (?,?,?,?,?)",
+            (run_id, str(company_id), stage, time.time(), note))

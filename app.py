@@ -16,7 +16,9 @@ from pathlib import Path
 import altair as alt
 import pandas as pd
 import streamlit as st
+import streamlit.components.v1 as components
 
+import ecosystem
 import geo
 import report
 import store
@@ -24,6 +26,7 @@ import validation
 from pipeline import DEMO_REQUEST
 
 ROOT = Path(__file__).parent
+eco_map = components.declare_component("ecosystem_map", path=str(ROOT / "components" / "ecosystem_map"))
 DEMO = store.DEMO_MODE
 VERSION = "v0.1 · ContextCon 05 build"
 st.set_page_config(page_title="PartnerScout", page_icon="◈", layout="wide", initial_sidebar_state="expanded")
@@ -215,9 +218,18 @@ def final_for(run_id):
 # ------------------------------------------------------------------ sidebar
 st.sidebar.markdown('<div class="ps-brand"><div class="ps-logo">P</div><b>PartnerScout</b></div>'
                     '<div class="ps-tag">Strategic Partnership Intelligence</div>', unsafe_allow_html=True)
-PAGES = ["Brief", "Workspace", "Partners", "Generator"]
-NAV = {"Brief": "◧   Partnership Brief", "Workspace": "◔   Intelligence Workspace", "Partners": "▥   Partner Dashboard", "Generator": "▤   Brief Generator"}
-page = st.sidebar.radio("Screen", PAGES, label_visibility="collapsed", format_func=lambda p: NAV[p])
+PAGES = ["Brief", "Workspace", "Ecosystem", "Pipeline", "Partners", "Generator"]
+NAV = {"Brief": "◧   Partnership Brief", "Workspace": "◔   Intelligence Workspace", "Ecosystem": "◎   Partner Ecosystem",
+       "Pipeline": "☰   Partnership Pipeline", "Partners": "▥   Partner Dashboard", "Generator": "▤   Brief Generator"}
+page = st.sidebar.radio("Screen", PAGES, label_visibility="collapsed", format_func=lambda p: NAV[p], key="nav")
+
+
+def goto_profile(company_id: str) -> None:
+    """Callback: open the full profile of an investigated company on the Partner Dashboard."""
+    st.session_state["nav"] = "Partners"
+    st.session_state["focus_company"] = str(company_id)
+
+
 rs = runs()
 labels = {r["run_id"]: f'{r["run_id"]}  ·  {r["status"]}' for r in rs}
 HEADLINE_RUN = "demo6"  # the run produced by the post-repair code (see PARTNERSCOUT_POST_REPAIR_AUDIT.md)
@@ -411,6 +423,144 @@ elif page == "Workspace":
         time.sleep(3)
         st.rerun()
 
+# ================================================================== 3a. PARTNER ECOSYSTEM
+elif page == "Ecosystem":
+    header("Partner ecosystem", "Where the discovered companies are and how far each has been investigated. Click a marker or choose a company; the list and the map stay in sync.", "Partner ecosystem")
+    if not current:
+        st.info("No runs yet. Start one from the Partnership Brief.")
+        st.stop()
+    companies = ecosystem.build_companies(current)
+    if not companies:
+        st.info("This run has not discovered any companies yet.")
+        st.stop()
+    city_opts = sorted({c["location"][0] for c in companies if c["location"]}) + [ecosystem.NOT_MAPPABLE]
+    ptype_opts = sorted({c["partner_type"] or "unscreened" for c in companies})
+    f1, f2, f3, f4 = st.columns([2, 2, 2, 2])
+    cities = f1.multiselect("Geography (city)", city_opts, key="eco_cities", help="Approximate city centres matched from each company's saved city text.")
+    sigs = f2.multiselect("Industry signals", list(ecosystem.SIGNALS), key="eco_sigs", help="Keywords found in the company's own description. A hint, not a verified fact.")
+    ptypes = f3.multiselect("Partner type", ptype_opts, key="eco_ptypes", help="Screened by the model from the description. Not verified.")
+    with f4:
+        fit_rng = st.slider("Fit score", 0, 100, (0, 100), key="eco_fit", help="Only investigated companies have a fit score.")
+        inc_unscored = st.checkbox("Include companies without a fit score", value=True, key="eco_unscored")
+    q = st.text_input("Search by name, domain or city", key="eco_q", label_visibility="collapsed", placeholder="Search by name, domain or city")
+    shown = sorted(ecosystem.filter_companies(companies, cities=cities, signals=sigs, ptypes=ptypes, fit_range=fit_rng if fit_rng != (0, 100) else (0, 100),
+                                              include_unscored=inc_unscored, text=q), key=ecosystem.sort_key)
+    pts, skipped = ecosystem.map_points(shown)
+    k = st.columns(4)
+    k[0].markdown(kpi("Companies shown", f"{len(shown)} / {len(companies)}", "after the filters above"), unsafe_allow_html=True)
+    k[1].markdown(kpi("On the map", len(pts), "approximate city centres", T["emerald"]), unsafe_allow_html=True)
+    k[2].markdown(kpi("Not mappable", skipped, "city text matched no known city", T["warn"]), unsafe_allow_html=True)
+    k[3].markdown(kpi("Investigated", sum(1 for c in shown if c["investigated"]), "have evidence and a fit score"), unsafe_allow_html=True)
+    st.markdown("<div style='height:14px'></div>", unsafe_allow_html=True)
+    ids = [c["id"] for c in shown]
+    if st.session_state.get("eco_sel") not in ids:
+        st.session_state["eco_sel"] = None
+    mcol, lcol = st.columns([3, 2], gap="large")
+    with mcol:
+        val = eco_map(points=pts, selected=st.session_state.get("eco_sel"), height=470, key="eco_map_comp", default=None,
+                      note="No links between companies are drawn: this build has no source that records relationships.")
+        if val and val.get("t") != st.session_state.get("eco_map_t"):
+            st.session_state["eco_map_t"] = val["t"]
+            if val["id"] in ids:
+                st.session_state["eco_sel"] = val["id"]
+            st.rerun()
+        st.caption("Coverage: only companies found by this run's searches are shown (73 to 75 per run), not the whole market. "
+                   "Locations are city-level and approximate; markers are spread slightly inside a city so they stay visible.")
+    with lcol:
+        st.selectbox("Selected company", ids, index=None, key="eco_sel", placeholder="Click a marker or choose here",
+                     format_func=lambda i, _n={c["id"]: c["name"] for c in shown}: _n.get(i, str(i)))
+        rows = []
+        for c in shown[:120]:
+            on = c["id"] == st.session_state.get("eco_sel")
+            sc = f'{c["fit"]:.0f}' if c["fit"] is not None else ("" if c["screen_relevance"] is None else f'~{c["screen_relevance"]:.0f}')
+            rows.append(f'<div style="display:flex;justify-content:space-between;gap:8px;padding:7px 10px;border-radius:9px;'
+                        f'{"background:" + T["soft"] + ";border:1px solid #CBE6DC;" if on else "border:1px solid transparent;"}">'
+                        f'<div><div style="font-weight:{700 if on else 600};font-size:13.5px">{esc(c["name"])}</div>'
+                        f'<div style="color:{T["slate"]};font-size:11.5px">{esc(c["city"] or "city not recorded")} · {esc(c["partner_type"] or "unscreened")}</div></div>'
+                        f'<div style="text-align:right"><div style="font-weight:700;font-size:13px">{sc}</div>'
+                        f'<div style="font-size:11px;color:{ecosystem.STAGE_COLORS[c["stage"]]};font-weight:600">{esc(c["stage"])}</div></div></div>')
+        st.markdown(f'<div class="ps-card" style="max-height:370px;overflow:auto;padding:8px"><h4 style="padding:4px 8px 0">Company list ({len(shown)})</h4>{"".join(rows) or "<div style=padding:10px>No company matches these filters.</div>"}'
+                    f'{"<div style=padding:8px;color:" + T["slate"] + ">Showing the first 120.</div>" if len(shown) > 120 else ""}</div>', unsafe_allow_html=True)
+        st.caption("~ marks screening relevance (a model judgement from the description); a plain number is a fit score from an investigated company.")
+    sel = next((c for c in shown if c["id"] == st.session_state.get("eco_sel")), None)
+    st.markdown("<div style='height:10px'></div>", unsafe_allow_html=True)
+    if sel is None:
+        st.markdown(f'<div class="ps-card"><h4>Partner details</h4><div style="color:{T["slate"]}">Select a company on the map or in the list to see its saved details.</div></div>', unsafe_allow_html=True)
+    else:
+        loc = sel["location"]
+        sigs_html = "".join(badge(s, T["slate"]) for s in sel["signals"]) or '<span style="color:' + T["slate"] + '">no industry keywords found in the description</span>'
+        score = (f'Fit {sel["fit"]:.1f} · evidence confidence {esc(sel["evidence_confidence"])}' if sel["fit"] is not None
+                 else (f'Screening relevance ~{sel["screen_relevance"]:.0f} (model judgement from the description; not a fit score)' if sel["screen_relevance"] is not None else "No score yet"))
+        st.markdown(
+            f'<div class="ps-card"><h4>Partner details</h4><div style="font-size:22px;font-weight:800;letter-spacing:-0.02em">{esc(sel["name"])}</div>'
+            f'<div style="color:{T["slate"]};font-size:13px;margin:2px 0 10px">{esc(sel["domain"])} · {esc(sel["size"])} employees</div>'
+            f'{badge(sel["stage"] + (" (set by a person)" if sel["stage_set_by_person"] else ""), ecosystem.STAGE_COLORS[sel["stage"]])}'
+            f'{badge("type: " + (sel["partner_type"] or "unscreened"), T["slate"])}'
+            f'<div style="margin-top:8px;font-size:13.5px;line-height:1.6"><b>City</b> {esc(sel["city"] or "not recorded")}'
+            f'{" · mapped to " + esc(loc[0]) + " (approximate)" if loc else " · cannot be mapped from this text, so it is not on the map"}<br>'
+            f'<b>Relevance</b> {score}<br><b>Industry signals</b> {sigs_html}</div>'
+            f'<div style="margin-top:8px;font-size:13.5px;line-height:1.55;color:#2A3B49">{esc((sel["description"] or "No description saved.")[:700])}</div>'
+            f'<div style="margin-top:8px;color:{T["slate"]};font-size:12px">Industry signals and partner type come from the description and a model screen; they are not verified. '
+            f'{"" if sel["investigated"] else "This company has not been investigated yet, so it has no verified evidence."}</div></div>', unsafe_allow_html=True)
+        b1, b2, b3 = st.columns([2, 2, 3])
+        with b1:
+            new_stage = st.selectbox("Pipeline stage", ecosystem.STAGES, index=ecosystem.STAGES.index(sel["stage"]), key=f"eco_stage_{sel['id']}")
+        with b2:
+            st.markdown("<div style='height:28px'></div>", unsafe_allow_html=True)
+            if st.button("Save stage", key=f"eco_save_{sel['id']}") and new_stage != sel["stage"]:
+                ecosystem.set_stage(current, sel["id"], new_stage)
+                st.rerun()
+        with b3:
+            st.markdown("<div style='height:28px'></div>", unsafe_allow_html=True)
+            if sel["investigated"]:
+                st.button("Open full profile", type="primary", key=f"eco_open_{sel['id']}", on_click=goto_profile, args=(sel["id"],))
+            else:
+                st.caption("Only investigated companies have a full profile.")
+
+# ================================================================== 3b. PARTNERSHIP PIPELINE
+elif page == "Pipeline":
+    header("Partnership pipeline", "Every discovered company, by stage. Stage changes you make are saved in SQLite. Nothing is ever sent to anyone.", "Partnership pipeline")
+    if not current:
+        st.info("No runs yet. Start one from the Partnership Brief.")
+        st.stop()
+    companies = ecosystem.build_companies(current)
+    if not companies:
+        st.info("This run has not discovered any companies yet.")
+        st.stop()
+    by = {s: [] for s in ecosystem.STAGES}
+    for c in sorted(companies, key=ecosystem.sort_key):
+        by[c["stage"]].append(c)
+    cols = st.columns(len(ecosystem.STAGES))
+    for col, s in zip(cols, ecosystem.STAGES):
+        items = by[s]
+        cards = "".join(f'<div style="background:{T["white"]};border:1px solid {T["line"]};border-left:3px solid {ecosystem.STAGE_COLORS[s]};border-radius:9px;padding:7px 9px;margin-bottom:6px">'
+                        f'<div style="font-weight:600;font-size:12.5px;line-height:1.3">{esc(c["name"])}</div>'
+                        f'<div style="color:{T["slate"]};font-size:11px">{esc(c["city"] or "—")}'
+                        f'{" · fit " + format(c["fit"], ".0f") if c["fit"] is not None else ""}{" · set by a person" if c["stage_set_by_person"] else ""}</div></div>' for c in items[:8])
+        more = f'<div style="color:{T["slate"]};font-size:11.5px">+ {len(items) - 8} more</div>' if len(items) > 8 else ""
+        col.markdown(f'<div style="border-top:3px solid {ecosystem.STAGE_COLORS[s]};padding-top:6px"><div style="display:flex;justify-content:space-between;font-weight:700;font-size:13px;margin-bottom:8px">'
+                     f'<span>{s}</span><span style="color:{T["slate"]}">{len(items)}</span></div>{cards or "<div style=color:" + T["slate"] + ";font-size:12px>empty</div>"}{more}</div>', unsafe_allow_html=True)
+    st.markdown("<div style='height:18px'></div>", unsafe_allow_html=True)
+    st.markdown('<div class="ps-card"><h4>Move a company</h4>', unsafe_allow_html=True)
+    with st.form("move_stage", clear_on_submit=False):
+        m1, m2, m3 = st.columns([3, 2, 3])
+        who = m1.selectbox("Company", [c["id"] for c in sorted(companies, key=ecosystem.sort_key)], format_func=lambda i, _n={c["id"]: f'{c["name"]}  ·  {c["stage"]}' for c in companies}: _n.get(i, str(i)))
+        to = m2.selectbox("Move to stage", ecosystem.STAGES)
+        note = m3.text_input("Note (optional)")
+        go = st.form_submit_button("Save stage", type="primary")
+    if go:
+        ecosystem.set_stage(current, who, to, note or None)
+        st.success("Saved.")
+        st.rerun()
+    cur = next(c for c in companies if c["id"] == who)
+    if cur["stage_set_by_person"] and st.button("Reset this company to its derived stage"):
+        ecosystem.clear_stage(current, who)
+        st.rerun()
+    st.markdown("</div>", unsafe_allow_html=True)
+    st.caption("Derived by the app from the run: Discovered (found by search), Investigating (identity or research started, or a tool failed), Verified (investigated, not recommended), "
+               "Shortlisted (recommended: Pursue or Worth a conversation), Approved (a draft was approved in the Brief Generator). Outreach Drafted and Archived are set by a person. "
+               "Approving a draft only records a decision. In the read-only demo, changes are kept only for the current session.")
+
 # ================================================================== 3. PARTNER DASHBOARD
 elif page == "Partners":
     fin = final_for(current)
@@ -508,7 +658,7 @@ elif page == "Partners":
         by_cat = {}
         for c in p["claims"]:
             by_cat.setdefault(c["category"], []).append(c)
-        with st.expander(f'#{i}  {co["name"]}  ·  {p.get("recommendation")}  ·  fit {p["fit"]["score"]}  ·  evidence {conf}', expanded=(i == 1)):
+        with st.expander(f'#{i}  {co["name"]}  ·  {p.get("recommendation")}  ·  fit {p["fit"]["score"]}  ·  evidence {conf}', expanded=(str(co["id"]) == st.session_state.get("focus_company")) if st.session_state.get("focus_company") else (i == 1)):
             h1, h2 = st.columns([1, 6])
             h1.markdown(fit_ring(p["fit"]["score"], col), unsafe_allow_html=True)
             flags = "".join(f'<span class="ps-risk red">{esc(f)}</span>' for f in p.get("flags", []))
@@ -635,6 +785,7 @@ else:
             c2.markdown(badge("approved · not sent", T["ok"]), unsafe_allow_html=True)
         elif c2.button("Approve draft", key=f"ap{cid}"):
             store.execute("INSERT INTO approvals(run_id,company_id,action,ts,note) VALUES (?,?,?,?,?)", (current, cid, "approve_draft", time.time(), "recorded only; nothing sent"))
+            ecosystem.set_stage(current, cid, "Approved", "draft approved; nothing was sent")
             st.rerun()
     st.markdown("### Report preview")
     st.iframe(html_doc, height=900)

@@ -6,6 +6,7 @@ ContextCon 05 (BITS Pilani x Crustdata), theme *Services, Replaced*. Primary the
 
 | | |
 |---|---|
+| **Live demo** (read-only, real saved runs, no keys needed) | [partnerscout.streamlit.app](https://partnerscout.streamlit.app/) |
 | Diagrams (one draw.io page, technical + business) | [open and edit](https://app.diagrams.net/#Uhttps%3A%2F%2Fraw.githubusercontent.com%2FJakkiRajasekharRamana%2FCrustdata%2Fmain%2Fdocs%2Fdiagrams%2Fpartnerscout-architecture.drawio) |
 | Sample deliverable | [docs/sample_report.html](docs/sample_report.html) (run `demo6`) |
 | Engineering audit (what was found and fixed, with measurements) | [docs/engineering-audit.md](docs/engineering-audit.md) |
@@ -69,6 +70,8 @@ pip install -r requirements.txt
 ```
 
 ### Mode A: no keys needed (read-only demo of saved real runs)
+
+Hosted at https://partnerscout.streamlit.app/ (Streamlit Community Cloud, no secrets set, so it opens this mode). Locally:
 
 ```bash
 streamlit run app.py

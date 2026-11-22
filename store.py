@@ -15,7 +15,18 @@ from dotenv import load_dotenv
 
 load_dotenv(Path(__file__).parent / ".env")  # note: real env vars (e.g. set by tests) win over .env
 
-DB_PATH = os.environ.get("PARTNERSCOUT_DB") or str(Path(__file__).parent / "data" / "partnerscout.db")
+_SNAPSHOT = Path(__file__).parent / "demo_data" / "demo.db"
+# Demo mode: explicit (PARTNERSCOUT_DEMO=1) or automatic on a host that has no Crustdata key (e.g. the public hosted demo).
+DEMO_MODE = os.environ.get("PARTNERSCOUT_DEMO") == "1" or (
+    not os.environ.get("CRUSTDATA_API_KEY") and not os.environ.get("PARTNERSCOUT_DB") and _SNAPSHOT.exists())
+if DEMO_MODE:
+    # Hosted read-only demo: browse a committed snapshot of real runs (copied to a temp file so approvals can be written).
+    import shutil
+    import tempfile
+    DB_PATH = str(Path(tempfile.gettempdir()) / "partnerscout_demo.db")
+    shutil.copyfile(_SNAPSHOT, DB_PATH)
+else:
+    DB_PATH = os.environ.get("PARTNERSCOUT_DB") or str(Path(__file__).parent / "data" / "partnerscout.db")
 
 _lock = threading.RLock()
 _conn: sqlite3.Connection | None = None

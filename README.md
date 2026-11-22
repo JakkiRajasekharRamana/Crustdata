@@ -128,7 +128,15 @@ A finished report for `demo1` is committed at [docs/sample_report_demo1.html](do
 ## 8. Roadmap (and why not today)
 Ongoing monitoring of partners (Watcher), CRM export, multi-client tenancy, and outreach after approval. Held back because each needs a person-in-the-loop design and none changes the core research quality we could verify in one day.
 
-## 9. Run it from a fresh clone
+## 9. Try it
+
+**Hosted read-only demo:** _link added after deployment_ (see below). It browses saved results of two real runs (`demo1`, `demo-crash`) on live Crustdata data, with all four screens, the evidence tables and the downloadable report. Starting new runs is disabled there on purpose, so a public link cannot spend API credits.
+
+**Full run with your own keys:** see section 10.
+
+**Deploying the demo yourself** (Streamlit Community Cloud, free): point a new app at this repo, main file `app.py`, and set **no secrets**. With no `CRUSTDATA_API_KEY` the app automatically opens the committed snapshot `demo_data/demo.db` (regenerate it with `python scripts/export_demo.py demo1 demo-crash`).
+
+## 10. Run it from a fresh clone
 
 ```powershell
 git clone <repo> ; cd partnerscout
@@ -143,5 +151,5 @@ python -m pytest -q tests                          # offline tests
 
 Resume demo: `python pipeline.py --run-id demo2 --crash-after enrich`, then run it again with the same `--run-id`; finished stages are not repeated and no paid call is made twice.
 
-## 10. Declaration
+## 11. Declaration
 Nothing was written before 10:15 AM on 22 Nov 2026 except the product brief (a text document describing the concept, scoring model and architecture), which is declared on the submission form.

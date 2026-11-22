@@ -38,6 +38,11 @@ def runs() -> list:
                        "AND run_id NOT LIKE 't-%' ORDER BY created_at DESC")
 
 
+DEMO = store.DEMO_MODE
+if DEMO:
+    st.info("**Read-only demo.** You are browsing saved results of real runs on live Crustdata data (22 Nov 2026). "
+            "New runs are disabled here so the hosted demo cannot spend API credits. Run it yourself with your own keys: see the README.")
+
 st.sidebar.title("PartnerScout")
 st.sidebar.caption("Strategic partnership intelligence - discover, verify, evaluate, recommend.")
 page = st.sidebar.radio("Screen", ["1. Partnership Brief", "2. Intelligence Workspace", "3. Partner Comparison", "4. Brief Generator"])
@@ -68,7 +73,7 @@ if page.startswith("1"):
     c1, c2, c3 = st.columns(3)
     ceiling = c1.number_input("Credit ceiling for this run", 20, 2000, 300)
     crash = c2.selectbox("Demo: simulate a crash after stage", ["(none)", "discover", "screen", "enrich", "research", "claims"])
-    if st.button("Run PartnerScout", type="primary"):
+    if st.button("Run PartnerScout", type="primary", disabled=DEMO, help="Disabled in the read-only demo" if DEMO else None):
         parts = [req] + [f"{k}: {v}" for k, v in [("Requesting company", company), ("Target industry", industry), ("Geography", geo),
                                                   ("Partner type", ptype), ("Required capabilities", caps), ("Constraints", extra)] if v]
         rid = f"run-{uuid.uuid4().hex[:6]}"
@@ -93,7 +98,7 @@ elif page.startswith("2"):
     c4.metric("Served from cache", int(led["cache_hits"]))
     if r["error"]:
         st.warning(r["error"])
-    if r["status"] in ("crashed", "paused_budget", "paused_credits"):
+    if r["status"] in ("crashed", "paused_budget", "paused_credits") and not DEMO:
         if st.button("Resume this run (continues from the last checkpoint, no repeated paid calls)"):
             launch(current, r["request"], 300)
             st.rerun()

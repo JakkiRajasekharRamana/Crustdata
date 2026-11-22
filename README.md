@@ -42,6 +42,13 @@ It is deliberately **not** a lead-generation or outbound-sales tool. Lead tools 
 
 ## 3. How it is built
 
+**Diagrams.** Open in draw.io (editable, no sign-in needed):
+
+* [Technical architecture](https://app.diagrams.net/#Uhttps%3A%2F%2Fraw.githubusercontent.com%2FJakkiRajasekharRamana%2FCrustdata%2Fmain%2Fdocs%2Fdiagrams%2Ftechnical-architecture.drawio) ([file](docs/diagrams/technical-architecture.drawio))
+* [Business architecture](https://app.diagrams.net/#Uhttps%3A%2F%2Fraw.githubusercontent.com%2FJakkiRajasekharRamana%2FCrustdata%2Fmain%2Fdocs%2Fdiagrams%2Fbusiness-architecture.drawio) ([file](docs/diagrams/business-architecture.drawio))
+
+
+
 See [docs/architecture.md](docs/architecture.md) for the diagram.
 
 * One **orchestrator** plus five agent roles. They are prompted functions over one shared model, not five separate systems (simpler, cheaper, easier to test).
